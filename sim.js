@@ -183,8 +183,9 @@ export class Sim {
   // 제산제 1알: 입 → 식도 → 위, 위에서 부서져 Mg²⁺·OH⁻가 퍼짐
   feed(onDone) {
     if (this.busy) return false;
-    this.busy = true; this.tablets++;
+    this.busy = true; this.tablets++; this.pairs = 0;
     this.setLined(false); this.waiting(false);
+    this.sfx?.gulp(); this.sfx?.whoosh(2.2 / this.speed);
     const pill = new THREE.Mesh(this.pillGeo, this.pillMat);
     pill.position.copy(MOUTH).add(new THREE.Vector3(0, 0.08, 0.1));
     this.group.add(pill);
@@ -192,6 +193,7 @@ export class Sim {
       const at = pill.position.clone();
       this.group.remove(pill);
       this.flash(at, true);
+      this.sfx?.fizz();
       const fresh = [];
       for (const [k, n] of Object.entries(PER_TABLET)) for (let i = 0; i < n; i++) {
         const p = this.add(k, at.clone().add(new THREE.Vector3((Math.random() - .5) * .04, (Math.random() - .5) * .04, 0)));
@@ -210,7 +212,7 @@ export class Sim {
     const next = () => {
       const hs = this.parts.filter(p => p.k === 'H' && !p.lock);
       const oh = ohs.shift();
-      if (!oh || !hs.length) { this.later(700, () => { this.busy = false; this.speed = 1; this.setLined(true); onDone && onDone(); }); return; }
+      if (!oh || !hs.length) { this.later(700, () => { this.sfx?.end(this.count('H') ? '산성' : this.count('OH') ? '염기성' : '중성'); this.busy = false; this.speed = 1; this.setLined(true); onDone && onDone(); }); return; }
       let h = hs[0], bd = Infinity;
       hs.forEach(c => { const d = c.s.position.distanceTo(oh.s.position); if (d < bd) { bd = d; h = c; } });
       const slow = !this.slowShown; this.slowShown = true;
@@ -221,6 +223,7 @@ export class Sim {
       this.tween(oh, meet, slow ? 2400 : 1100, () => {
         this.remove(h); this.remove(oh);
         this.flash(meet, slow);
+        this.sfx?.ding(this.pairs++, slow);
         const w = this.add('W', meet);
         w.s.scale.multiplyScalar(slow ? 1.6 : 1.2);
         this.tween(w, meet.clone().add(new THREE.Vector3(0, 0, 0.04)), 300, () => { w.s.scale.set(R * 1.8, R * 1.8, 1); if (!this.lined) w.s.material.opacity = 0.45; });
