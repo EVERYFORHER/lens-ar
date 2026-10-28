@@ -1,0 +1,64 @@
+:root {
+  --ink: #1d2733; --muted: #5b6673; --line: #dde2ea; --bg: #f6f7f9; --card: #fff;
+  --blue: #2f6fde; --ok: #1f8a4c; --warn: #c2410c;
+  --H: #e23d3d; --Cl: #2ea043; --OH: #2862d6; --Mg: #7d7d8a; --W: #3fa9de;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif; color: var(--ink); background: var(--bg); }
+body { overflow: hidden; }
+.hidden { display: none !important; }
+
+#stage, #ar, #v3d { position: fixed; inset: 0; }
+#stage { display: none; background: #111; }
+body.live #stage { display: block; }
+#v3d { display: none; background: #1b2433; }
+
+#top { position: fixed; top: 0; left: 0; right: 0; z-index: 20; padding: 8px 16px; font-size: 13px; background: rgba(255,255,255,.92); border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; }
+#top b { color: var(--blue); }
+#sendstate { margin-left: auto; color: var(--muted); }
+
+#panel { position: fixed; left: 0; right: 0; top: 37px; bottom: 0; overflow-y: auto; padding: 16px 16px 32px; z-index: 10; background: var(--bg); }
+body.live #panel { top: auto; max-height: 44vh; background: rgba(255,255,255,.96); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 16px rgba(0,0,0,.25); padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); }
+#panel h2 { font-size: 19px; margin: 4px 0 8px; }
+#panel h3 { font-size: 16px; margin: 14px 0 6px; }
+#panel p { margin: 6px 0; line-height: 1.6; }
+.q { font-weight: 700; font-size: 17px; }
+.muted { color: var(--muted); font-size: 13px; }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 10px 0; }
+body.live .box { padding: 8px 10px; margin: 6px 0; }
+
+button { font: inherit; min-height: 44px; border: 0; border-radius: 10px; padding: 0 14px; font-weight: 600; background: var(--blue); color: #fff; }
+button:disabled { opacity: .45; }
+button.sub { background: #e4e8ee; color: var(--ink); }
+button.wide { width: 100%; margin-top: 10px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > button { flex: 1 1 0; }
+.opts { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.opts button { flex: 1 1 0; background: #fff; color: var(--ink); border: 2px solid var(--line); }
+.opts button.on { border-color: var(--blue); background: #eaf1fd; color: var(--blue); }
+textarea, input[type=text], input[type=number] { font: inherit; width: 100%; padding: 10px; border: 1px solid #c8cfd9; border-radius: 10px; background: #fff; }
+textarea { min-height: 70px; resize: vertical; }
+label.chk { display: flex; gap: 8px; align-items: center; padding: 6px 0; }
+label.chk input { width: 20px; height: 20px; }
+.msg { min-height: 20px; font-size: 14px; margin-top: 6px; }
+.msg.ok { color: var(--ok); } .msg.no { color: var(--warn); }
+
+.legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 3px; }
+
+.step { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { min-height: 36px; width: 36px; padding: 0; background: #e4e8ee; color: var(--ink); }
+.stepper span { min-width: 28px; text-align: center; font-weight: 700; font-size: 18px; }
+
+table.rec { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.rec td, table.rec th { border-bottom: 1px solid var(--line); padding: 4px; text-align: center; }
+
+.calc { display: grid; grid-template-columns: 1fr 110px auto; gap: 8px; align-items: center; margin: 8px 0; }
+.calc .u { font-size: 13px; color: var(--muted); }
+.prod { display: flex; gap: 12px; align-items: center; }
+.prod .pill { background: #fff3e6; border: 1px solid #f3c38f; border-radius: 10px; padding: 8px 10px; font-size: 14px; }
+
+#scan { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 15; text-align: center; color: #fff; text-shadow: 0 1px 3px #000; width: 80%; }
+#scan img { width: 90px; opacity: .8; border-radius: 6px; }
+#toast { position: fixed; left: 50%; top: 56px; transform: translateX(-50%); background: #1d2733; color: #fff; padding: 8px 14px; border-radius: 8px; z-index: 30; font-size: 14px; }

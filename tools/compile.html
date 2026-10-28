@@ -1,7 +1,7 @@
 <!doctype html><html><body><script type="module">
 import { Compiler } from '../lib/mindar/mindar-image.prod.js';
 window.run = async () => {
-  const imgs = await Promise.all(['A','B','C'].map(k => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = '../assets/cards/card'+k+'.jpg'; })));
+  const imgs = await Promise.all((new URLSearchParams(location.search).get('cards') || 'ABC').split('').map(k => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = '../assets/cards/card'+k+'.jpg'; })));
   const c = new Compiler();
   await c.compileImageTargets(imgs, p => { window.prog = p; });
   const buf = await c.exportData();
