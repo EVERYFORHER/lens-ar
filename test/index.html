@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>LENS AR 카드 인식 테스트</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #111; color: #fff; font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif; overflow: hidden; }
+  #ar, #view3d { position: fixed; inset: 0; }
+  #view3d { display: none; background: #1b2433; }
+  #hud { position: fixed; left: 0; right: 0; top: 0; padding: 10px 12px; background: rgba(0,0,0,.6); font-size: 14px; line-height: 1.5; z-index: 10; }
+  #status { font-size: 17px; font-weight: 700; }
+  #status.found { color: #7CFC9A; }
+  #status.warn { color: #ffd166; }
+  table { border-collapse: collapse; margin-top: 4px; font-size: 13px; }
+  td, th { padding: 2px 8px; border-bottom: 1px solid rgba(255,255,255,.2); text-align: center; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: rgba(0,0,0,.65); display: flex; gap: 8px; flex-wrap: wrap; z-index: 10; }
+  button { flex: 1 1 auto; min-height: 44px; border: 0; border-radius: 10px; font-size: 15px; font-weight: 600; background: #2f6fde; color: #fff; }
+  button.sub { background: #444c5a; }
+  #to3d { display: none; background: #e07a1f; }
+  #start { position: fixed; inset: 0; z-index: 20; background: #111; display: flex; flex-direction: column; justify-content: center; padding: 24px; gap: 14px; }
+  #start h1 { font-size: 22px; margin: 0; }
+  #start p { margin: 0; color: #cfd6e0; line-height: 1.6; }
+  #toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #fff; color: #111; padding: 8px 14px; border-radius: 8px; display: none; z-index: 30; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "../lib/three/three.module.min.js",
+  "three/addons/": "../lib/three/addons/"
+} }
+</script>
+</head>
+<body>
+<div id="start">
+  <h1>AR 카드 인식 테스트</h1>
+  <p>인쇄한 카드 A·B·C를 책상에 놓고, 폰을 30~50 cm 위에서 비춰 보세요. 카드마다 처음 잡히는 데 걸린 시간과 놓친 횟수를 기록해요.</p>
+  <p>카드가 없으면 다른 화면(컴퓨터 모니터)에 카드 그림을 띄워 비춰도 돼요.</p>
+  <button id="go">카메라 켜고 시작</button>
+  <button class="sub" id="go3d">카메라 없이 3D 보기만 확인</button>
+</div>
+
+<div id="ar"></div>
+<div id="view3d"></div>
+
+<div id="hud">
+  <div id="status">준비 중</div>
+  <div id="sub">경과 0초 · 초당 화면 0</div>
+  <table>
+    <tr><th>카드</th><th>첫 인식</th><th>놓침</th><th>유지율</th></tr>
+    <tr><td>A</td><td id="tA">-</td><td id="lA">0</td><td id="kA">-</td></tr>
+    <tr><td>B</td><td id="tB">-</td><td id="lB">0</td><td id="kB">-</td></tr>
+    <tr><td>C</td><td id="tC">-</td><td id="lC">0</td><td id="kC">-</td></tr>
+  </table>
+</div>
+
+<div id="bar">
+  <button id="to3d">카드가 안 잡혀요 → 3D 보기</button>
+  <button class="sub" id="reset">다른 카드 시간 재기</button>
+  <button id="copy">결과 복사</button>
+</div>
+<div id="toast"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const CARDS = ['A', 'B', 'C'];
+const CARD_H = 1269 / 900;           // 카드 세로/가로 비율 (가로 = 1)
+const FALLBACK_SEC = 10;             // 이 시간 안에 못 잡으면 3D 버튼
+const $ = id => document.getElementById(id);
+
+// 기록
+const rec = {};
+CARDS.forEach(k => rec[k] = { first: null, lost: 0, seen: 0, total: 0, on: false });
+let t0 = 0, mode = '', current = null, lastCard = null, frames = 0, fps = 0, lastFpsT = performance.now();
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 1800); }
+function setStatus(msg, cls = '') { const s = $('status'); s.textContent = msg; s.className = cls; }
+
+// 입자 장면 (AR·3D 공통): 위 모양 반투명 주머니 + H⁺·Cl⁻ 입자
+const ION = { H: 0xe23d3d, Cl: 0x2ea043, OH: 0x2862d6, Mg: 0x8a8a96 };
+function makeScene() {
+  const g = new THREE.Group();
+  const bag = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 32, 24),
+    new THREE.MeshStandardMaterial({ color: 0xffb8a0, transparent: true, opacity: 0.35, side: THREE.DoubleSide })
+  );
+  bag.scale.set(1.15, 0.8, 0.75);
+  g.add(bag);
+  const balls = [];
+  const geo = new THREE.SphereGeometry(0.045, 16, 12);
+  const kinds = [...Array(10).fill('H'), ...Array(10).fill('Cl'), ...Array(3).fill('OH'), ...Array(2).fill('Mg')];
+  kinds.forEach((k, i) => {
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: ION[k] }));
+    m.userData = { a: Math.random() * 6.28, b: Math.random() * 6.28, s: 0.4 + Math.random() * 0.6, r: 0.12 + Math.random() * 0.22 };
+    g.add(m); balls.push(m);
+  });
+  g.add(new THREE.HemisphereLight(0xffffff, 0x444466, 1.2));
+  const dl = new THREE.DirectionalLight(0xffffff, 1); dl.position.set(1, 2, 3); g.add(dl);
+  g.userData.tick = t => balls.forEach(m => {
+    const u = m.userData;
+    m.position.set(Math.cos(u.a + t * u.s) * u.r * 1.4, Math.sin(u.b + t * u.s * 0.8) * u.r, Math.sin(u.a + t * u.s) * u.r * 0.8);
+  });
+  return g;
+}
+
+function tickFps() {
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsT >= 1000) { fps = frames; frames = 0; lastFpsT = now; }
+}
+
+function render() {
+  const el = (performance.now() - t0) / 1000;
+  $('sub').textContent = `경과 ${el.toFixed(0)}초 · 초당 화면 ${fps} · ${mode === '3d' ? '3D 보기' : 'AR'}`;
+  CARDS.forEach(k => {
+    const r = rec[k];
+    $('t' + k).textContent = r.first == null ? '-' : r.first.toFixed(1) + '초';
+    $('l' + k).textContent = r.lost;
+    $('k' + k).textContent = r.total ? Math.round(100 * r.seen / r.total) + '%' : '-';
+  });
+  if (mode === 'ar' && !CARDS.some(k => rec[k].first != null) && el > FALLBACK_SEC) {
+    $('to3d').style.display = 'block';
+    if (!current) setStatus(`${FALLBACK_SEC}초 넘게 못 찾았어요. 거리·조명을 바꾸거나 3D 보기로 바꿔 보세요.`, 'warn');
+  }
+}
+
+// AR 시작
+let mindar = null;
+async function startAR() {
+  mode = 'ar'; t0 = performance.now();
+  setStatus('카메라 켜는 중…');
+  let MindARThree;
+  try {
+    ({ MindARThree } = await import('../lib/mindar/mindar-image-three.prod.js'));
+  } catch (e) { return fail('AR 라이브러리를 불러오지 못했어요'); }
+  mindar = new MindARThree({
+    container: $('ar'), imageTargetSrc: '../assets/cards/targets.mind',
+    maxTrack: 1, uiLoading: 'no', uiScanning: 'no', uiError: 'no'
+  });
+  const { renderer, scene, camera } = mindar;
+  const groups = CARDS.map((k, i) => {
+    const a = mindar.addAnchor(i);
+    const g = makeScene();
+    g.position.set(0, 0, 0.25);
+    a.group.add(g);
+    a.onTargetFound = () => {
+      const r = rec[k]; r.on = true; current = k; lastCard = k;
+      if (r.first == null) r.first = (performance.now() - t0) / 1000;
+      setStatus(`카드 ${k} 인식!`, 'found');
+    };
+    a.onTargetLost = () => {
+      rec[k].on = false; rec[k].lost++; current = null;
+      setStatus('카드를 찾는 중…');
+    };
+    return g;
+  });
+  try {
+    await mindar.start();
+  } catch (e) { return fail('카메라를 켤 수 없어요 (권한 거부 또는 미지원 브라우저)'); }
+  setStatus('카드를 찾는 중…');
+  renderer.setAnimationLoop(() => {
+    const t = performance.now() / 1000;
+    groups.forEach(g => g.userData.tick(t));
+    // 유지율: 마지막으로 잡힌 카드가 그 뒤로 화면에 잡혀 있던 비율
+    if (lastCard) { const r = rec[lastCard]; r.total++; if (r.on) r.seen++; }
+    tickFps();
+    renderer.render(scene, camera);
+  });
+  setInterval(render, 250);
+}
+
+function fail(msg) {
+  setStatus(msg + ' → 3D 보기로 바꿀게요.', 'warn');
+  setTimeout(start3D, 1500);
+}
+
+// 3D 보기 (카드 인식이 안 될 때)
+let started3d = false;
+function start3D() {
+  if (started3d) return; started3d = true;
+  if (mindar) { try { mindar.renderer.setAnimationLoop(null); mindar.stop(); } catch (e) {} }
+  $('ar').style.display = 'none';
+  $('to3d').style.display = 'none';
+  const box = $('view3d'); box.style.display = 'block';
+  mode = '3d'; if (!t0) t0 = performance.now();
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  box.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 50);
+  camera.position.set(0, 0.5, innerWidth < innerHeight ? 1.3 * innerHeight / innerWidth : 1.8);
+  const ctl = new OrbitControls(camera, renderer.domElement);
+  ctl.enableDamping = true; ctl.minDistance = 0.8; ctl.maxDistance = 4;
+  const g = makeScene(); scene.add(g);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(1, CARD_H), new THREE.MeshBasicMaterial({ color: 0x2c3a52 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -0.45; scene.add(floor);
+  addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  renderer.setAnimationLoop(() => { g.userData.tick(performance.now() / 1000); ctl.update(); tickFps(); renderer.render(scene, camera); });
+  setStatus('3D 보기: 손가락으로 돌리고 두 손가락으로 확대해 보세요', 'found');
+  setInterval(render, 250);
+}
+
+function summary() {
+  const ua = navigator.userAgent;
+  const dev = /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Android/.test(ua) ? (ua.match(/Android [\d.]+; ([^;)]+)/) || [, 'Android'])[1] : '기타';
+  const br = /SamsungBrowser/.test(ua) ? '삼성 인터넷' : /CriOS|Chrome/.test(ua) ? '크롬' : /Safari/.test(ua) ? '사파리' : /KAKAOTALK/.test(ua) ? '카톡' : '기타';
+  const lines = [`[LENS AR 테스트] ${dev} · ${br} · ${mode === '3d' ? '3D 보기' : 'AR'} · 초당 화면 ${fps}`];
+  CARDS.forEach(k => {
+    const r = rec[k];
+    lines.push(`카드 ${k}: 첫 인식 ${r.first == null ? '안 됨' : r.first.toFixed(1) + '초'}, 놓침 ${r.lost}회, 유지율 ${r.total ? Math.round(100 * r.seen / r.total) + '%' : '-'}`);
+  });
+  return lines.join('\n');
+}
+
+$('go').onclick = () => { $('start').style.display = 'none'; startAR(); };
+$('go3d').onclick = () => { $('start').style.display = 'none'; start3D(); };
+$('to3d').onclick = start3D;
+$('reset').onclick = () => { t0 = performance.now(); current = null; lastCard = null; toast('시간을 다시 재요. 다음 카드를 비춰 보세요.'); };
+$('copy').onclick = async () => {
+  const s = summary();
+  try { await navigator.clipboard.writeText(s); toast('복사했어요. 채팅에 붙여 넣어 주세요.'); }
+  catch (e) { prompt('아래 내용을 복사해 주세요', s); }
+};
+</script>
+</body>
+</html>
