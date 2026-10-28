@@ -15,7 +15,7 @@ export const START = { H: 20, Cl: 20 };
 
 const R = 0.027;                                   // 입자 반지름
 const MOUTH = new THREE.Vector3(0, 0.455, 0.05);
-const ST = { c: new THREE.Vector3(0.04, -0.24, 0.12), a: 0.27, b: 0.19, d: 0.10, rot: -0.35 };   // 위(타원체)
+const ST = { c: new THREE.Vector3(0.03, -0.24, 0.12), a: 0.25, b: 0.18, d: 0.10, rot: -0.35 };   // 위(타원체)
 const ROW_ORDER = ['H', 'OH', 'W', 'Cl', 'Mg'];
 const stRot = new THREE.Matrix4().makeRotationZ(ST.rot), stInv = new THREE.Matrix4().makeRotationZ(-ST.rot);
 
@@ -83,11 +83,18 @@ function clampStomach(p) {
 function makeBody() {
   const g = new THREE.Group();
   const skin = new THREE.MeshBasicMaterial({ color: 0xffe0c8, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide });
+  // 목 → 어깨 → 팔 → 겨드랑이 → 옆구리 (왼쪽), 오른쪽은 거울 (tools/card_e.py와 같은 모양)
   const s = new THREE.Shape();
-  s.moveTo(-0.07, 0.40); s.lineTo(-0.07, 0.34);
-  s.quadraticCurveTo(-0.40, 0.33, -0.42, 0.18); s.lineTo(-0.42, -0.62); s.quadraticCurveTo(-0.42, -0.68, -0.36, -0.68);
-  s.lineTo(0.38, -0.68); s.quadraticCurveTo(0.44, -0.68, 0.44, -0.62); s.lineTo(0.44, 0.18);
-  s.quadraticCurveTo(0.42, 0.33, 0.07, 0.34); s.lineTo(0.07, 0.40);
+  const side = m => {
+    const P = (x, y) => [m * x, y];
+    s.lineTo(...P(-0.06, 0.35)); s.quadraticCurveTo(...P(-0.10, 0.31), ...P(-0.30, 0.30)); s.quadraticCurveTo(...P(-0.42, 0.28), ...P(-0.44, 0.15));
+    s.lineTo(...P(-0.47, -0.32)); s.quadraticCurveTo(...P(-0.46, -0.40), ...P(-0.40, -0.38)); s.lineTo(...P(-0.35, 0.08));
+    s.quadraticCurveTo(...P(-0.34, 0.12), ...P(-0.31, 0.06)); s.lineTo(...P(-0.31, -0.68));
+  };
+  s.moveTo(-0.06, 0.40); side(1);
+  s.lineTo(0.31, -0.68); s.lineTo(0.31, 0.06); s.quadraticCurveTo(0.34, 0.12, 0.35, 0.08); s.lineTo(0.40, -0.38);
+  s.quadraticCurveTo(0.46, -0.40, 0.47, -0.32); s.lineTo(0.44, 0.15); s.quadraticCurveTo(0.42, 0.28, 0.30, 0.30);
+  s.quadraticCurveTo(0.10, 0.31, 0.06, 0.35); s.lineTo(0.06, 0.40);
   const torso = new THREE.Mesh(new THREE.ShapeGeometry(s, 24), skin); torso.position.z = 0.004; g.add(torso);
   const head = new THREE.Mesh(new THREE.CircleGeometry(0.13, 40), skin); head.position.set(0, 0.52, 0.006); g.add(head);
   const dark = new THREE.MeshBasicMaterial({ color: 0x3a2a2a });

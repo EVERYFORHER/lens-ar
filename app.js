@@ -96,7 +96,7 @@ function vStart() {
   return `<h2>위산과 제산제</h2>
   <p class="q">제산제를 두 알 먹으면 더 좋을까?</p>
   ${isChem() ? '<p>1차시 가상 실험에서 염산에 제산제 1알을 넣었더니 pH가 1.00에서 3.02가 됐어요. 오늘은 그 반응이 우리 위 속에서 어떻게 일어나는지 입자로 들여다봐요.</p>' : '<p>위산(염산)이 든 위에 제산제가 들어가면 입자들은 어떻게 될까요? 직접 먹여 봐요.</p>'}
-  <p class="muted">준비물: 몸 카드(C)는 책상에, 알약 카드(D)는 손에.</p>
+  <p class="muted">준비물: 몸 카드(E)는 책상에, 알약 카드(D)는 손에.</p>
   <div class="box"><b>오늘의 가정 (수업용)</b><p>위 속에 남은 위산: 0.1 M 염산 100 mL<br>제산제 1알: 수산화 마그네슘 145 mg</p>
   <p class="muted">입자 1개 = 0.5 mmol로 단순하게 나타냈어요. 실제 제품과 숫자가 다를 수 있어요.</p></div>
   <p>책상 위 카드를 비춰서 볼까요, 화면에서 바로 볼까요?</p>
@@ -346,7 +346,7 @@ async function startAR() {
   scanTimer = setTimeout(() => { if (!foundOnce) $('#to3d').classList.remove('hidden'); }, 10000);
   try {
     const { MindARThree } = await import('./lib/mindar/mindar-image-three.prod.js');
-    mindar = new MindARThree({ container: $('#ar'), imageTargetSrc: 'assets/cards/cardCD.mind', maxTrack: 2, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
+    mindar = new MindARThree({ container: $('#ar'), imageTargetSrc: 'assets/cards/cardED.mind', maxTrack: 2, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
     const { renderer, scene, camera } = mindar;
     const C = mindar.addAnchor(0), D = mindar.addAnchor(1);
     sim.group.position.set(0, 0, 0); sim.group.rotation.set(0, 0, 0);
@@ -394,7 +394,7 @@ function start3D() {
   const cam = new THREE.PerspectiveCamera(50, 1, 0.01, 50);
   const ctl = new OrbitControls(cam, r3d.domElement);
   ctl.enableDamping = true; ctl.minDistance = 0.6; ctl.maxDistance = 4;
-  const card = new THREE.Mesh(new THREE.PlaneGeometry(1, 1269 / 900), new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('assets/cards/cardC.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; }) }));
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(1, 1269 / 900), new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('assets/cards/cardE.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; }) }));
   scene.add(card);
   sim.group.position.set(0, 0, 0); scene.add(sim.group);
   ctl.target.set(0, 0, 0.1);

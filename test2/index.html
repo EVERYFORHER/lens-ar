@@ -24,14 +24,14 @@
 <body>
 <div id="start">
   <h2 style="margin:0">알약 카드 테스트</h2>
-  <p>① 비커 카드(C)를 책상에 놓고 폰으로 비춰요.<br>② 다른 손으로 알약 카드(D)를 들고 비커 카드 가까이 가져가요.<br>③ 알약 카드를 숟가락처럼 기울이면 알약이 떨어져야 해요.</p>
+  <p>① 몸 카드(E)를 책상에 놓고 폰으로 비춰요.<br>② 다른 손으로 알약 카드(D)를 들고 입 가까이 가져가요.<br>③ 알약 카드를 숟가락처럼 기울이면 알약이 떨어져야 해요.</p>
   <p>다섯 번쯤 넣어 본 뒤 [결과 복사]를 눌러 채팅에 붙여 주세요.</p>
   <button id="go">카메라 켜고 시작</button>
 </div>
 <div id="ar"></div>
 <div id="hud">
   <div id="big">준비 중</div>
-  <div>비커 카드 C: <b id="sc" class="off">-</b> · 알약 카드 D: <b id="sd" class="off">-</b></div>
+  <div>몸 카드 E: <b id="sc" class="off">-</b> · 알약 카드 D: <b id="sd" class="off">-</b></div>
   <div id="geo">거리 - · 기울기 -</div>
   <div id="stat">초당 화면 0 · 넣은 알약 0</div>
 </div>
@@ -49,7 +49,7 @@ function toast(m) { const t = $('toast'); t.textContent = m; t.style.display = '
 
 async function start() {
   const { MindARThree } = await import('../lib/mindar/mindar-image-three.prod.js');
-  const mindar = new MindARThree({ container: $('ar'), imageTargetSrc: '../assets/cards/cardCD.mind', maxTrack: 2, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
+  const mindar = new MindARThree({ container: $('ar'), imageTargetSrc: '../assets/cards/cardED.mind', maxTrack: 2, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
   const { renderer, scene, camera } = mindar;
   scene.add(new THREE.HemisphereLight(0xffffff, 0x444466, 1.5));
   const C = mindar.addAnchor(0), D = mindar.addAnchor(1);
@@ -95,7 +95,7 @@ async function start() {
     $('sc').textContent = cOn ? '보임' : (cSeen ? '가려짐(고정)' : '찾는 중'); $('sc').className = cOn ? 'on' : 'off';
     $('sd').textContent = dOn ? '보임' : '찾는 중'; $('sd').className = dOn ? 'on' : 'off';
     $('geo').textContent = dist == null ? '거리 - · 기울기 -' : `거리 ${dist.toFixed(2)} · 기울기 ${tilt.toFixed(0)}°`;
-    $('big').textContent = !cSeen ? '비커 카드를 비춰요' : !dOn ? '알약 카드를 가까이 가져와요' : holdT > 0 ? '기울이는 중… 조금만 더' : (dist < NEAR ? '이제 숟가락처럼 기울여요' : '비커 쪽으로 더 가까이');
+    $('big').textContent = !cSeen ? '비커 카드를 비춰요' : !dOn ? '알약 카드를 가까이 가져와요' : holdT > 0 ? '기울이는 중… 조금만 더' : (dist < NEAR ? '이제 숟가락처럼 기울여요' : '몸 카드 쪽으로 더 가까이');
     $('big').className = holdT > 0 ? 'go' : '';
     fc++; const now = performance.now(); if (now - lt > 1000) { fps = fc; fc = 0; lt = now; }
     $('stat').textContent = `초당 화면 ${fps} · 넣은 알약 ${rec.drops}`;
