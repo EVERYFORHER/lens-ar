@@ -1,8 +1,8 @@
 // LENS 4차시 위산과 제산제 AR 모듈
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Sim, KIND } from './sim.js?v=20261028c';
-import { sfx, bgm, duck, bindButton } from './sound.js?v=20261028c';
+import { Sim, KIND } from './sim.js?v=20261028d';
+import { sfx, bgm, duck, bindButton } from './sound.js?v=20261028d';
 
 // 공통 엔진 웹앱 (활동기록 탭으로 보냄). 키는 엔진 차시 탭 외부링크의 ?k= 로 받음.
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';

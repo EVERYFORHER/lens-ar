@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>LENS 위산과 제산제</title>
-<link rel="stylesheet" href="app.css?v=20261028c">
+<link rel="stylesheet" href="app.css?v=20261028d">
 <script type="importmap">
 { "imports": {
   "three": "./lib/three/three.module.min.js",
@@ -23,6 +23,10 @@
 <main id="panel"></main>
 <div id="pill" class="hidden" title="끌어다 입에 넣기">💊</div>
 <div id="toast" class="hidden"></div>
-<script type="module" src="app.js?v=20261028c"></script>
+<script type="module">
+// ?scene=heat|cao|entropy 이면 확장 장면, 없으면 4차시 제산제
+const V = '20261028d', sc = new URLSearchParams(location.search).get('scene');
+import(sc ? './scene.js?v=' + V : './app.js?v=' + V);
+</script>
 </body>
 </html>

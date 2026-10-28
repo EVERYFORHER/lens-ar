@@ -36,6 +36,8 @@ button.wide { width: 100%; margin-top: 10px; }
 .row > button { flex: 1 1 0; }
 .opts { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .opts button { flex: 1 1 0; background: #fff; color: var(--ink); border: 2px solid var(--line); }
+.opts.sm { gap: 4px; margin: 4px 0; } .opts.sm button { flex: 1 1 0; min-width: 0; min-height: 36px; padding: 0 2px; }
+.opts.two button { flex: 1 1 45%; min-height: 40px; }
 .opts button.on { border-color: var(--blue); background: #eaf1fd; color: var(--blue); }
 textarea, input[type=text], input[type=number] { font: inherit; width: 100%; padding: 10px; border: 1px solid #c8cfd9; border-radius: 10px; background: #fff; }
 textarea { min-height: 70px; resize: vertical; }
