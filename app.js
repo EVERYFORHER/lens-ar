@@ -98,7 +98,7 @@ function vStart() {
   ${isChem() ? '<p>1차시 가상 실험에서 염산에 제산제 1알을 넣었더니 pH가 1.00에서 3.02가 됐어요. 오늘은 그 반응이 우리 위 속에서 어떻게 일어나는지 입자로 들여다봐요.</p>' : '<p>위산(염산)이 든 위에 제산제가 들어가면 입자들은 어떻게 될까요? 직접 먹여 봐요.</p>'}
   <p class="muted">준비물: 몸 카드(E)는 책상에, 알약 카드(D)는 손에.</p>
   <div class="box"><b>오늘의 가정 (수업용)</b><p>위 속에 남은 위산: 0.1 M 염산 100 mL<br>제산제 1알: 수산화 마그네슘 145 mg</p>
-  <p class="muted">입자 1개 = 0.5 mmol로 단순하게 나타냈어요. 실제 제품과 숫자가 다를 수 있어요.</p></div>
+  <p class="muted">입자 수는 양의 비율만 나타낸 모형이에요 (H⁺ 8개 = 위산 속 H⁺ 10 mmol). 실제 제품과 숫자가 다를 수 있어요.</p></div>
   <p>책상 위 카드를 비춰서 볼까요, 화면에서 바로 볼까요?</p>
   <div class="row"><button data-view="AR">카드로 보기 (AR)</button><button class="sub" data-view="3D">화면에서 보기</button></div>`;
 }
@@ -111,9 +111,9 @@ function vPredict() {
   <div class="msg no" id="pmsg"></div><button class="wide" id="pgo">예측 제출하고 입자 보러 가기</button>`;
 }
 
-const expect = t => ({ H: Math.max(0, 20 - 10 * t), OH: Math.max(0, 10 * t - 20) });
+const expect = t => ({ H: Math.max(0, 8 - 4 * t), OH: Math.max(0, 4 * t - 8) });   // sim.js START·PER_TABLET과 같게
 const liqOf = e => e.H > 0 ? '산성' : e.OH > 0 ? '염기성' : '중성';
-let draft = { H: 20, OH: 0, liq: '' };
+let draft = { H: '', OH: '', liq: '' };
 
 function vObserve() {
   const t = sim ? sim.tablets : 0;
@@ -124,16 +124,17 @@ function vObserve() {
   else if (need) {
     h += `<div class="box"><b>${t}알 넣은 뒤</b> 줄 세운 입자를 세어 적어요.
     <div class="step" style="margin-top:6px">
-      <span>남은 H⁺</span><span></span><div class="stepper"><button data-d="H:-1">−</button><span id="cH">${draft.H}</span><button data-d="H:1">+</button></div>
-      <span>남은 OH⁻</span><span></span><div class="stepper"><button data-d="OH:-1">−</button><span id="cOH">${draft.OH}</span><button data-d="OH:1">+</button></div>
+      <span>남은 H⁺</span><input class="num" type="number" inputmode="numeric" min="0" max="40" id="cH" value="${draft.H}"><span class="u">개</span>
+      <span>남은 OH⁻</span><input class="num" type="number" inputmode="numeric" min="0" max="40" id="cOH" value="${draft.OH}"><span class="u">개</span>
     </div>${opts('liq', ['산성', '중성', '염기성'], draft.liq)}
     <div class="msg" id="omsg"></div><button class="wide" id="ocheck">확인</button></div>`;
   } else if (t < 3) {
-    h += `<p>${t === 0 ? '위 속에 위산(H⁺, Cl⁻)이 보이나요? ' : ''}<b>알약 카드</b>를 입 가까이 가져가 숟가락처럼 기울여 한 알 먹여요.</p>
-    <p class="muted">알약 카드가 없거나 안 잡히면 화면의 💊를 끌어다 입에 넣어요.</p>`;
+    h += `<p>${t === 0 ? '위 속에 위산(H⁺, Cl⁻)이 보이나요? ' : ''}<b>알약 카드</b>를 입(노란 고리) 가까이 갖다 대면 한 알 먹어요.</p>
+    <p class="muted">화면 오른쪽 💊를 손가락으로 입까지 끌어 넣어도 돼요.</p>`;
   } else {
     h += `<p class="ok">세 번 다 기록했어요.</p><div class="row"><button class="sub" id="replay">처음부터 다시 보기</button><button id="onext">다음</button></div>`;
   }
+  if (sim) h += `<button class="sub wide" id="spect">구경꾼 이온(Cl⁻·Mg²⁺) ${sim.showSpect ? '숨기기' : '보기'}</button>`;
   if (sim && !sim.busy && t > 0) h += `<button class="sub wide" id="mix">${sim.lined ? '섞인 모습 보기' : '줄 세워 보기'}</button>`;
   if (doneN) h += `<table class="rec"><tr><th>알</th><th>남은 H⁺</th><th>남은 OH⁻</th><th>액성</th></tr>${
     Object.entries(S.obs).map(([k, o]) => `<tr><td>${k}</td><td>${o.H}</td><td>${o.OH}</td><td>${o.liq}</td></tr>`).join('')}</table>`;
@@ -206,21 +207,20 @@ const bind = {
     };
   },
   관찰(p) {
+    const sp = $('#spect'); if (sp) sp.onclick = () => { sim.setSpect(!sim.showSpect); render(); };
     const fast = $('#fast'); if (fast) fast.onclick = () => { sim.speed = 4; fast.disabled = true; };
     const mix = $('#mix'); if (mix) mix.onclick = () => { sim.setLined(!sim.lined); render(); };
-    p.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
-      const [k, d] = b.dataset.d.split(':'); draft[k] = Math.max(0, Math.min(40, draft[k] + Number(d)));
-      $('#c' + k).textContent = draft[k];
-    });
+    ['H', 'OH'].forEach(k => { const el = $('#c' + k); if (el) el.oninput = () => { draft[k] = el.value; }; });
     p.querySelectorAll('[data-liq]').forEach(b => b.onclick = () => { draft.liq = b.dataset.liq; p.querySelectorAll('[data-liq]').forEach(x => x.classList.toggle('on', x === b)); });
     const ck = $('#ocheck');
     if (ck) ck.onclick = () => {
       const t = sim.tablets, e = expect(t), m = $('#omsg');
       draft.tries = (draft.tries || 0) + 1;
+      if (draft.H === '' || draft.OH === '') { m.className = 'msg no'; m.textContent = '남은 H⁺와 OH⁻ 개수를 숫자로 넣어요.'; draft.tries--; return; }
       if (!draft.liq) { m.className = 'msg no'; m.textContent = '액성도 골라요.'; draft.tries--; return; }
-      const okN = draft.H === e.H && draft.OH === e.OH, okL = draft.liq === liqOf(e);
+      const okN = Number(draft.H) === e.H && Number(draft.OH) === e.OH, okL = draft.liq === liqOf(e);
       if (okN && okL) {
-        S.obs[t] = { H: draft.H, OH: draft.OH, liq: draft.liq, tries: draft.tries }; keep();
+        S.obs[t] = { H: Number(draft.H), OH: Number(draft.OH), liq: draft.liq, tries: draft.tries }; keep();
         if (Object.keys(S.obs).length === 3) {
           const o = {}; [1, 2, 3].forEach(i => { const r = S.obs[i]; o[i + '알_H'] = r.H; o[i + '알_OH'] = r.OH; o[i + '알_액성'] = r.liq; o[i + '알_시도'] = r.tries; });
           send('관찰', o);
@@ -228,7 +228,7 @@ const bind = {
         toast('맞아요!'); render();
       } else {
         m.className = 'msg no';
-        m.textContent = !okN ? (draft.H !== e.H ? '빨간 H⁺ 줄을 다시 세어 보세요. 한 줄은 10개예요.' : '파란 OH⁻ 줄을 다시 세어 보세요.')
+        m.textContent = !okN ? (Number(draft.H) !== e.H ? '빨간 H⁺ 줄을 다시 세어 보세요.' : '파란 OH⁻ 줄을 다시 세어 보세요.')
           : '남은 이온을 보고 액성을 다시 골라 보세요. H⁺가 남으면? OH⁻가 남으면?';
       }
     };
@@ -280,20 +280,20 @@ const bind = {
 
 /* ---------- AR / 3D 보기 ---------- */
 let sim = null, viewOn = false, mindar = null, r3d = null, foundOnce = false, scanTimer = null;
-let viewCam = null, viewEl = null, lastDSeen = 0, waitStart = 0, wasWaiting = false;
+let viewCam = null, viewEl = null;
 const clock = new THREE.Clock();
 
 // 지금 알약을 먹일 수 있나: 관찰 단계, 반응 중 아님, 3알 전, 앞 알의 기록을 마침
 const canFeed = () => S && S.step === 2 && sim && !sim.busy && sim.tablets < 3 && Object.keys(S.obs).length >= sim.tablets;
 function doFeed() {
   if (!canFeed()) return false;
-  draft = { H: 20, OH: 0, liq: '' };
+  draft = { H: '', OH: '', liq: '' };
   sim.feed(() => render());
   render();
   return true;
 }
 
-// 화면의 💊 끌어 넣기 (3D 보기, 또는 알약 카드가 8초 넘게 안 잡힐 때)
+// 화면의 💊 끌어 넣기 (알약 카드와 함께 언제나)
 function mouthOnScreen() {
   if (!viewCam || !viewEl) return null;
   const v = sim.group.localToWorld(sim.mouth.clone()).project(viewCam);
@@ -302,11 +302,8 @@ function mouthOnScreen() {
 }
 function uiTick() {
   const w = canFeed();
-  if (w && !wasWaiting) waitStart = performance.now();
-  wasWaiting = w;
   sim.waiting(w);
-  const now = performance.now();
-  const show = w && (S.view === '3D' || now - Math.max(waitStart, lastDSeen) > 8000);
+  const show = w;   // 끌어 넣기는 언제나 함께 (알약 카드가 잘 안 잡혀도 막히지 않게)
   $('#pill').classList.toggle('hidden', !show);
 }
 window.LENS_AR = { mouthOnScreen };   // 테스트용
@@ -320,7 +317,7 @@ window.LENS_AR = { mouthOnScreen };   // 테스트용
     if (!drag) return; drag = false;
     const m = mouthOnScreen();
     home();
-    if (m && Math.hypot(e.clientX - m.x, e.clientY - m.y) < 90) doFeed();
+    if (m && Math.hypot(e.clientX - m.x, e.clientY - m.y) < 130) doFeed();
     else toast('💊를 노란 고리(입)까지 끌어다 놓아요');
   });
 })();
@@ -338,8 +335,8 @@ function stopView() {
   viewCam = viewEl = null;
 }
 
-// 알약 카드 D를 입 가까이에서 기울이면 먹이기
-const NEAR = 0.45, TILT = 30, HOLD = 0.5;
+// 알약 카드 D를 입 가까이 대면 먹이기 (기울기 조건은 폰 테스트에서 불편해 뺌)
+const NEAR = 0.6, HOLD = 0.4;
 async function startAR() {
   $('#scan').classList.remove('hidden');
   $('#to3d').onclick = () => { S.view = '3D'; keep(); stopView(); startView(); toast('화면에서 보기로 바꿨어요'); };
@@ -356,22 +353,19 @@ async function startAR() {
     C.onTargetFound = () => { foundOnce = true; $('#scan').classList.add('hidden'); };
     await mindar.start();
     viewCam = camera; viewEl = renderer.domElement;
-    const inv = new THREE.Matrix4(), rel = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3();
+    const inv = new THREE.Matrix4(), rel = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
     let hold = 0;
     renderer.setAnimationLoop(() => {
       const dt = Math.min(clock.getDelta(), 0.05);
       sim.tick(dt);
       // 한번 잡힌 뒤에는 카드를 놓치거나 알약 카드에 가려져도 마지막 자리에 장면을 남겨 둠
       if (foundOnce) C.group.visible = true;
-      if (D.visible) lastDSeen = performance.now();
       pill.visible = canFeed();
       if (foundOnce && D.visible && canFeed()) {
         inv.copy(C.group.matrixWorld).invert();
         rel.multiplyMatrices(inv, D.group.matrixWorld).decompose(p, q, sc);
-        up.set(0, 0, 1).applyQuaternion(q);
         const dist = Math.hypot(p.x - sim.mouth.x, p.y - sim.mouth.y);
-        const tilt = THREE.MathUtils.radToDeg(Math.acos(Math.min(1, Math.abs(up.z))));
-        const ok = isFinite(dist) && isFinite(tilt) && dist < NEAR && tilt > TILT;
+        const ok = isFinite(dist) && dist < NEAR;
         hold = ok ? hold + dt : 0;
         if (hold > HOLD) { hold = 0; doFeed(); }
       } else hold = 0;

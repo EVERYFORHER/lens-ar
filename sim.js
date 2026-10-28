@@ -1,5 +1,5 @@
 // 위산 + 제산제 입자 장면 (AR과 3D 보기 공통)
-// 좌표: 카드 평면이 XY(가로 1, 세로 1.41), Z는 카드에서 위로. 입자 1개 = 0.5 mmol (수업용 단순화).
+// 좌표: 카드 평면이 XY(가로 1, 세로 1.41), Z는 카드에서 위로. 입자 수는 양의 비율만 나타냄 (H⁺ 8개 = 10 mmol).
 // 카드 위에 반투명 상반신(입·식도·위)이 누워 있고, 반응은 위 속에서 일어남.
 import * as THREE from 'three';
 
@@ -10,10 +10,10 @@ export const KIND = {
   OH: { color: '#2862d6', label: 'OH⁻' },
   W:  { color: '#3fa9de', label: 'H₂O' },
 };
-export const PER_TABLET = { Mg: 5, OH: 10 };
-export const START = { H: 20, Cl: 20 };
+export const PER_TABLET = { Mg: 2, OH: 4 };   // 1알이 위산의 절반을 중화
+export const START = { H: 8, Cl: 8 };
 
-const R = 0.027;                                   // 입자 반지름
+const R = 0.033;                                   // 입자 반지름
 const MOUTH = new THREE.Vector3(0, 0.455, 0.05);
 const ST = { c: new THREE.Vector3(0.03, -0.24, 0.12), a: 0.25, b: 0.18, d: 0.10, rot: -0.35 };   // 위(타원체)
 const ROW_ORDER = ['H', 'OH', 'W', 'Cl', 'Mg'];
@@ -131,6 +131,7 @@ export class Sim {
     this.lined = false;
     this.busy = false;
     this.speed = 1;
+    this.showSpect = false;   // 구경꾼 이온(Cl⁻·Mg²⁺)은 기본으로 숨김
     this.tablets = 0;
     this.slowShown = false;
     this.pillGeo = new THREE.CapsuleGeometry(0.03, 0.05, 6, 12);
@@ -157,6 +158,7 @@ export class Sim {
     s.scale.set(r * 2, r * 2, 1);
     s.position.copy(pos);
     s.material.opacity = KIND[k].spect && !this.lined ? 0.45 : 1;
+    s.visible = !KIND[k].spect || this.showSpect;
     this.group.add(s);
     const p = { k, s, tw: null, v: new THREE.Vector3(), lock: false };
     this.parts.push(p);
@@ -216,32 +218,40 @@ export class Sim {
       [h, oh].forEach(p => p.s.scale.multiplyScalar(slow ? 1.5 : 1.2));
       if (slow) this.bubble('OH⁻가 H⁺를 찾아가요', h.s.position, 2400);
       const meet = h.s.position.clone();
-      this.tween(oh, meet, slow ? 2400 : 650, () => {
+      this.tween(oh, meet, slow ? 2400 : 1100, () => {
         this.remove(h); this.remove(oh);
         this.flash(meet, slow);
         const w = this.add('W', meet);
         w.s.scale.multiplyScalar(slow ? 1.6 : 1.2);
-        this.tween(w, meet.clone().add(new THREE.Vector3(0, 0, 0.04)), 300, () => { w.s.scale.set(R * 2.5, R * 2.5, 1); });
+        this.tween(w, meet.clone().add(new THREE.Vector3(0, 0, 0.04)), 300, () => { w.s.scale.set(R * 1.8, R * 1.8, 1); if (!this.lined) w.s.material.opacity = 0.45; });
         if (slow) { this.bubble('H⁺ + OH⁻ → H₂O', meet, 2600); this.later(2400, next); }
-        else this.later(180, next);
+        else this.later(400, next);
       });
     };
     next();
+  }
+
+  setSpect(on) {
+    this.showSpect = on;
+    this.parts.forEach(p => { if (KIND[p.k].spect) p.s.visible = on; });
+    if (this.lined) this.setLined(true);
   }
 
   // 줄 세우기: 종류별로 10개씩, 몸은 흐리게
   setLined(on) {
     this.lined = on;
     this.body.mats.forEach(m => { m.opacity = on ? 0.12 : (m.userData.o || (m.userData.o = m.opacity)); });
-    this.parts.forEach(p => { p.s.material.opacity = KIND[p.k].spect && !on ? 0.45 : 1; });
-    if (!on) { this.parts.forEach(p => { if (!p.tw && !p.lock) { p.lock = true; this.tween(p, randInStomach(), 700, () => { p.lock = false; }); } }); return; }
+    this.parts.forEach(p => { p.s.material.opacity = (KIND[p.k].spect || p.k === 'W') && !on ? 0.45 : 1; });
+    if (!on) { this.parts.forEach(p => { const r = p.k === 'W' ? R * 1.8 : R; p.s.scale.set(r * 2, r * 2, 1); if (!p.tw && !p.lock) { p.lock = true; this.tween(p, randInStomach(), 700, () => { p.lock = false; }); } }); return; }
     let row = 0;
-    const top = 0.26, gap = 0.064, x0 = -0.29;
+    const top = 0.22, gap = 0.082, x0 = -0.37;
     ROW_ORDER.forEach(k => {
-      const list = this.parts.filter(p => p.k === k);
+      const list = this.parts.filter(p => p.k === k && p.s.visible);
       if (!list.length) return;
       list.forEach((p, i) => {
         const r = row + Math.floor(i / 10);
+        const big = (p.k === 'W' ? R * 1.25 : R) * 2 * 1.45;   // 세기 쉽게 크게
+        p.s.scale.set(big, big, 1);
         this.tween(p, new THREE.Vector3(x0 + (i % 10) * gap, top - r * gap, 0.26), 800);
       });
       row += Math.ceil(list.length / 10) + 0.3;
@@ -280,6 +290,7 @@ export class Sim {
     }
     for (let i = 0; i < this.parts.length; i++) for (let j = i + 1; j < this.parts.length; j++) {
       const A = this.parts[i], B = this.parts[j];
+      if (!A.s.visible || !B.s.visible) continue;
       const d = A.s.position.distanceTo(B.s.position);
       if (d >= min || d === 0) continue;
       const push = B.s.position.clone().sub(A.s.position).multiplyScalar((min - d) / d * 0.5);
