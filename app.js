@@ -405,7 +405,11 @@ function start3D() {
 }
 
 /* ---------- 시작 ---------- */
-function load() { S = Object.assign(fresh(), store.get(skey(), {})); }
+function load() {
+  // ?reset=1 이면 이 학생의 이 차시 기록을 지우고 처음부터 (테스트·다시 하기용)
+  if (q.get('reset')) { store.set(skey(), {}); history.replaceState(null, '', location.pathname + location.search.replace(/[?&]reset=1/, '').replace(/^&/, '?')); }
+  S = Object.assign(fresh(), store.get(skey(), {}));
+}
 if (me) load();
 render();
 flush();
