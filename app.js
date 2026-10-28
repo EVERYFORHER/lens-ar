@@ -95,7 +95,8 @@ function vLogin() {
 function vStart() {
   return `<h2>위산과 제산제</h2>
   <p class="q">제산제를 두 알 먹으면 더 좋을까?</p>
-  ${isChem() ? '<p>1차시 가상 실험에서 염산에 제산제 1알을 넣었더니 pH가 1.00에서 3.02가 됐어요. 오늘은 그 비커 속을 입자로 들여다봐요.</p>' : '<p>위산(염산)에 제산제를 넣으면 입자들은 어떻게 될까요? 카드 위에서 직접 넣어 봐요.</p>'}
+  ${isChem() ? '<p>1차시 가상 실험에서 염산에 제산제 1알을 넣었더니 pH가 1.00에서 3.02가 됐어요. 오늘은 그 반응이 우리 위 속에서 어떻게 일어나는지 입자로 들여다봐요.</p>' : '<p>위산(염산)이 든 위에 제산제가 들어가면 입자들은 어떻게 될까요? 직접 먹여 봐요.</p>'}
+  <p class="muted">준비물: 몸 카드(C)는 책상에, 알약 카드(D)는 손에.</p>
   <div class="box"><b>오늘의 가정 (수업용)</b><p>위 속에 남은 위산: 0.1 M 염산 100 mL<br>제산제 1알: 수산화 마그네슘 145 mg</p>
   <p class="muted">입자 1개 = 0.5 mmol로 단순하게 나타냈어요. 실제 제품과 숫자가 다를 수 있어요.</p></div>
   <p>책상 위 카드를 비춰서 볼까요, 화면에서 바로 볼까요?</p>
@@ -119,7 +120,7 @@ function vObserve() {
   const doneN = Object.keys(S.obs).length;
   const need = t > doneN && !(sim && sim.busy);
   let h = `<h2>② 입자로 보기 · 제산제 ${t}/3알</h2>${legend()}`;
-  if (sim && sim.busy) h += '<p class="muted">반응 중… OH⁻가 어디로 가는지 보세요.</p>';
+  if (sim && sim.busy) h += '<p class="muted">반응 중… OH⁻가 어디로 가는지 보세요.</p><button class="sub wide" id="fast">빨리 보기</button>';
   else if (need) {
     h += `<div class="box"><b>${t}알 넣은 뒤</b> 줄 세운 입자를 세어 적어요.
     <div class="step" style="margin-top:6px">
@@ -128,8 +129,8 @@ function vObserve() {
     </div>${opts('liq', ['산성', '중성', '염기성'], draft.liq)}
     <div class="msg" id="omsg"></div><button class="wide" id="ocheck">확인</button></div>`;
   } else if (t < 3) {
-    h += `<p>${t === 0 ? '카드 위에 위산(H⁺, Cl⁻)이 보이나요? ' : ''}제산제를 넣어 보세요.</p>
-    <button class="wide" id="tab">제산제 1알 넣기</button>`;
+    h += `<p>${t === 0 ? '위 속에 위산(H⁺, Cl⁻)이 보이나요? ' : ''}<b>알약 카드</b>를 입 가까이 가져가 숟가락처럼 기울여 한 알 먹여요.</p>
+    <p class="muted">알약 카드가 없거나 안 잡히면 화면의 💊를 끌어다 입에 넣어요.</p>`;
   } else {
     h += `<p class="ok">세 번 다 기록했어요.</p><div class="row"><button class="sub" id="replay">처음부터 다시 보기</button><button id="onext">다음</button></div>`;
   }
@@ -205,8 +206,7 @@ const bind = {
     };
   },
   관찰(p) {
-    const tab = $('#tab');
-    if (tab) tab.onclick = () => { draft = { H: 20, OH: 0, liq: '' }; sim.addTablet(() => render()); render(); };
+    const fast = $('#fast'); if (fast) fast.onclick = () => { sim.speed = 4; fast.disabled = true; };
     const mix = $('#mix'); if (mix) mix.onclick = () => { sim.setLined(!sim.lined); render(); };
     p.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
       const [k, d] = b.dataset.d.split(':'); draft[k] = Math.max(0, Math.min(40, draft[k] + Number(d)));
@@ -280,7 +280,50 @@ const bind = {
 
 /* ---------- AR / 3D 보기 ---------- */
 let sim = null, viewOn = false, mindar = null, r3d = null, foundOnce = false, scanTimer = null;
+let viewCam = null, viewEl = null, lastDSeen = 0, waitStart = 0, wasWaiting = false;
 const clock = new THREE.Clock();
+
+// 지금 알약을 먹일 수 있나: 관찰 단계, 반응 중 아님, 3알 전, 앞 알의 기록을 마침
+const canFeed = () => S && S.step === 2 && sim && !sim.busy && sim.tablets < 3 && Object.keys(S.obs).length >= sim.tablets;
+function doFeed() {
+  if (!canFeed()) return false;
+  draft = { H: 20, OH: 0, liq: '' };
+  sim.feed(() => render());
+  render();
+  return true;
+}
+
+// 화면의 💊 끌어 넣기 (3D 보기, 또는 알약 카드가 8초 넘게 안 잡힐 때)
+function mouthOnScreen() {
+  if (!viewCam || !viewEl) return null;
+  const v = sim.group.localToWorld(sim.mouth.clone()).project(viewCam);
+  const r = viewEl.getBoundingClientRect();
+  return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
+}
+function uiTick() {
+  const w = canFeed();
+  if (w && !wasWaiting) waitStart = performance.now();
+  wasWaiting = w;
+  sim.waiting(w);
+  const now = performance.now();
+  const show = w && (S.view === '3D' || now - Math.max(waitStart, lastDSeen) > 8000);
+  $('#pill').classList.toggle('hidden', !show);
+}
+window.LENS_AR = { mouthOnScreen };   // 테스트용
+(function dragPill() {
+  const el = $('#pill');
+  let drag = false;
+  const home = () => { el.style.left = ''; el.style.top = ''; el.classList.remove('drag'); };
+  el.addEventListener('pointerdown', e => { drag = true; el.setPointerCapture(e.pointerId); el.classList.add('drag'); e.preventDefault(); });
+  el.addEventListener('pointermove', e => { if (!drag) return; el.style.left = (e.clientX - 28) + 'px'; el.style.top = (e.clientY - 28) + 'px'; });
+  el.addEventListener('pointerup', e => {
+    if (!drag) return; drag = false;
+    const m = mouthOnScreen();
+    home();
+    if (m && Math.hypot(e.clientX - m.x, e.clientY - m.y) < 90) doFeed();
+    else toast('💊를 노란 고리(입)까지 끌어다 놓아요');
+  });
+})();
 
 async function startView() {
   if (viewOn) return; viewOn = true;
@@ -289,28 +332,50 @@ async function startView() {
 }
 function stopView() {
   if (!viewOn) return; viewOn = false;
-  clearTimeout(scanTimer); $('#scan').classList.add('hidden');
+  clearTimeout(scanTimer); $('#scan').classList.add('hidden'); $('#pill').classList.add('hidden');
   if (mindar) { try { mindar.renderer.setAnimationLoop(null); mindar.stop(); } catch (e) {} mindar = null; $('#ar').innerHTML = ''; }
   if (r3d) { r3d.setAnimationLoop(null); r3d.dispose(); r3d = null; $('#v3d').innerHTML = ''; $('#v3d').style.display = 'none'; }
+  viewCam = viewEl = null;
 }
 
+// 알약 카드 D를 입 가까이에서 기울이면 먹이기
+const NEAR = 0.45, TILT = 30, HOLD = 0.5;
 async function startAR() {
   $('#scan').classList.remove('hidden');
   $('#to3d').onclick = () => { S.view = '3D'; keep(); stopView(); startView(); toast('화면에서 보기로 바꿨어요'); };
   scanTimer = setTimeout(() => { if (!foundOnce) $('#to3d').classList.remove('hidden'); }, 10000);
   try {
     const { MindARThree } = await import('./lib/mindar/mindar-image-three.prod.js');
-    mindar = new MindARThree({ container: $('#ar'), imageTargetSrc: 'assets/cards/cardC.mind', maxTrack: 1, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
+    mindar = new MindARThree({ container: $('#ar'), imageTargetSrc: 'assets/cards/cardCD.mind', maxTrack: 2, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
     const { renderer, scene, camera } = mindar;
-    const anchor = mindar.addAnchor(0);
+    const C = mindar.addAnchor(0), D = mindar.addAnchor(1);
     sim.group.position.set(0, 0, 0); sim.group.rotation.set(0, 0, 0);
-    anchor.group.add(sim.group);
-    anchor.onTargetFound = () => { foundOnce = true; $('#scan').classList.add('hidden'); };
+    C.group.add(sim.group);
+    const pill = new THREE.Mesh(sim.pillGeo, sim.pillMat); pill.scale.setScalar(2.2); pill.position.z = 0.1; pill.rotation.z = Math.PI / 2;
+    D.group.add(pill);
+    C.onTargetFound = () => { foundOnce = true; $('#scan').classList.add('hidden'); };
     await mindar.start();
+    viewCam = camera; viewEl = renderer.domElement;
+    const inv = new THREE.Matrix4(), rel = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3();
+    let hold = 0;
     renderer.setAnimationLoop(() => {
-      sim.tick(Math.min(clock.getDelta(), 0.05));
-      // 한번 잡힌 뒤에는 카드를 놓쳐도 마지막 자리에 장면을 남겨 둠 (숫자 입력하는 동안)
-      if (foundOnce) anchor.group.visible = true;
+      const dt = Math.min(clock.getDelta(), 0.05);
+      sim.tick(dt);
+      // 한번 잡힌 뒤에는 카드를 놓치거나 알약 카드에 가려져도 마지막 자리에 장면을 남겨 둠
+      if (foundOnce) C.group.visible = true;
+      if (D.visible) lastDSeen = performance.now();
+      pill.visible = canFeed();
+      if (foundOnce && D.visible && canFeed()) {
+        inv.copy(C.group.matrixWorld).invert();
+        rel.multiplyMatrices(inv, D.group.matrixWorld).decompose(p, q, sc);
+        up.set(0, 0, 1).applyQuaternion(q);
+        const dist = Math.hypot(p.x - sim.mouth.x, p.y - sim.mouth.y);
+        const tilt = THREE.MathUtils.radToDeg(Math.acos(Math.min(1, Math.abs(up.z))));
+        const ok = isFinite(dist) && isFinite(tilt) && dist < NEAR && tilt > TILT;
+        hold = ok ? hold + dt : 0;
+        if (hold > HOLD) { hold = 0; doFeed(); }
+      } else hold = 0;
+      uiTick();
       renderer.render(scene, camera);
     });
   } catch (e) {
@@ -332,16 +397,17 @@ function start3D() {
   const card = new THREE.Mesh(new THREE.PlaneGeometry(1, 1269 / 900), new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('assets/cards/cardC.jpg', t => { t.colorSpace = THREE.SRGBColorSpace; }) }));
   scene.add(card);
   sim.group.position.set(0, 0, 0); scene.add(sim.group);
-  ctl.target.set(0, 0.05, 0.1);
+  ctl.target.set(0, 0, 0.1);
   const size = () => {
     const w = innerWidth, h = innerHeight;
     r3d.setSize(w, h); cam.aspect = w / h;
-    cam.setViewOffset(w, h, 0, h * 0.22, w, h);   // 아래 패널을 피해 장면을 위로
-    cam.position.set(0, -0.45, (w < h ? 0.95 * h / w : 1.5));
+    cam.setViewOffset(w, h, 0, h * 0.2, w, h);   // 아래 패널을 피해 장면을 위로
+    cam.position.set(0, -0.6, (w < h ? 1.25 * h / w : 1.9));
     cam.updateProjectionMatrix();
   };
   size(); addEventListener('resize', size);
-  r3d.setAnimationLoop(() => { sim.tick(Math.min(clock.getDelta(), 0.05)); ctl.update(); r3d.render(scene, cam); });
+  viewCam = cam; viewEl = r3d.domElement;
+  r3d.setAnimationLoop(() => { sim.tick(Math.min(clock.getDelta(), 0.05)); ctl.update(); uiTick(); r3d.render(scene, cam); });
 }
 
 /* ---------- 시작 ---------- */

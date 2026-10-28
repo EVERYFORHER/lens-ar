@@ -62,3 +62,7 @@ table.rec td, table.rec th { border-bottom: 1px solid var(--line); padding: 4px;
 #scan { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%); z-index: 15; text-align: center; color: #fff; text-shadow: 0 1px 3px #000; width: 80%; }
 #scan img { width: 90px; opacity: .8; border-radius: 6px; }
 #toast { position: fixed; left: 50%; top: 56px; transform: translateX(-50%); background: #1d2733; color: #fff; padding: 8px 14px; border-radius: 8px; z-index: 30; font-size: 14px; }
+
+#pill { position: fixed; right: 18px; bottom: calc(44vh + 18px); z-index: 25; width: 56px; height: 56px; border-radius: 50%; background: #fff; box-shadow: 0 3px 12px rgba(0,0,0,.35); font-size: 32px; display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none; animation: bob 1.4s ease-in-out infinite; }
+#pill.drag { right: auto; bottom: auto; animation: none; transform: scale(1.15); }
+@keyframes bob { 50% { transform: translateY(-6px); } }
