@@ -28,6 +28,15 @@ export function bindMenu(btn, h) {
   btn.onclick = () => { ask = ''; draw(); sheet.classList.remove('hidden'); };
 }
 
+// ◀ LENS: 엔진이 새 창으로 열었으면 창을 닫고, 안 닫히면 엔진 학생 주소로 이동
+const ENGINE = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
+export function bindHome(btn) {
+  btn.onclick = () => {
+    try { window.close(); } catch (e) {}
+    setTimeout(() => { location.href = ENGINE; }, 300);
+  };
+}
+
 // 주소에서 학생 정보(sid 등)를 빼고 연결 키만 남김 (다른 학번으로 시작할 때)
 export function dropStudentParams() {
   const q = new URLSearchParams(location.search);

@@ -2,12 +2,12 @@
 // 통합과학 3·4차시, 물질과 에너지 2·3차시에서 엔진 앱이 새 창으로 엶. 기록은 4차시 제산제와 같은 방식(doPost activity).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sfx, bgm, bindButton } from './sound.js?v=20261029a';
-import { HeatScene, RX } from './scenes/heat.js?v=20261029a';
-import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261029a';
-import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261029a';
-import { CARD_H } from './scenes/kit.js?v=20261029a';
-import { bindMenu, dropStudentParams } from './menu.js?v=20261029a';
+import { sfx, bgm, bindButton } from './sound.js?v=20261029b';
+import { HeatScene, RX } from './scenes/heat.js?v=20261029b';
+import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261029b';
+import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261029b';
+import { CARD_H } from './scenes/kit.js?v=20261029b';
+import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261029b';
 
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
 const SUBJ = { isci: '통합과학', mne: '물질과 에너지', chem: '화학' };
@@ -230,7 +230,8 @@ function render() {
   if (live) startView(); else stopView();
   bgm(!!live);
   const p = $('#panel');
-  p.innerHTML = !me ? vLogin() : live ? D.panel() : vStart();
+  p.innerHTML = !me ? vLogin() : live ? (busy ? '' : '<button class="sub back" id="toStart">◀ 처음 화면</button>') + D.panel() : vStart();
+  const ts = $('#toStart'); if (ts) ts.onclick = () => { S.step = 0; keep(); render(); };
   if (!me) return bindLogin(p);
   if (live) D.bind(p); else bindStart(p);
 }
@@ -324,6 +325,7 @@ function start3D() {
 /* ---------- 시작 ---------- */
 document.title = 'LENS ' + D.title;
 bindButton($('#snd'));
+bindHome($('#home'));
 bindMenu($('#menu-btn'), {
   can: k => !!me && (k !== 'replay' || S.step > 0),
   replay() { msg = ''; busy = false; D.replay(); render(); },

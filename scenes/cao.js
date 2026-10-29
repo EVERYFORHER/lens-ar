@@ -1,7 +1,7 @@
 // ② 조리 용기: 도시락 아래 칸에서 산화 칼슘 + 물 → 열, 위 칸 달걀이 데워짐
 // 온도 변화는 엔진 mod_i4의 가상 모형과 같은 식(숫자는 보여 주지 않음, 정확한 그래프는 앱이 맡음)
 import * as THREE from 'three';
-import { plate, label, sprite, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261029a';
+import { plate, label, sprite, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261029b';
 
 export const GS = [20, 30, 40, 50, 60, 70, 80], MLS = [100, 150, 200, 250, 300];
 export const MINUTES = 20;   // 화면에서 보여 주는 시간 (1초 = 1분)
