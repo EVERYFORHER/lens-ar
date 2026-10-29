@@ -1,8 +1,9 @@
 // LENS 4차시 위산과 제산제 AR 모듈
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Sim, KIND } from './sim.js?v=20261028d';
-import { sfx, bgm, duck, bindButton } from './sound.js?v=20261028d';
+import { Sim, KIND } from './sim.js?v=20261029a';
+import { sfx, bgm, duck, bindButton } from './sound.js?v=20261029a';
+import { bindMenu, dropStudentParams } from './menu.js?v=20261029a';
 
 // 공통 엔진 웹앱 (활동기록 탭으로 보냄). 키는 엔진 차시 탭 외부링크의 ?k= 로 받음.
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
@@ -71,16 +72,21 @@ addEventListener('online', flush);
 
 /* ---------- 화면 ---------- */
 function go(step) { S.step = step; keep(); render(); }
+let free = false;   // AR 다시 체험: 기록과 상관없이 알약을 마음껏 먹여 봄
+const stepNow = () => free ? 2 : S.step;
+const backBtn = to => `<button class="sub back" data-back="${to}">◀ 이전</button>`;
 function render() {
   $('#who').textContent = me ? `${me.name} · ${isChem() ? '화학' : '통합과학'}` : '';
-  const live = me && S && S.step === 2;
+  const live = me && S && stepNow() === 2;
   document.body.classList.toggle('live', !!live);
   if (live) startView(); else stopView();
   bgm(!!live);   // 배경음은 입자 관찰 화면에서만
   const p = $('#panel');
-  p.innerHTML = !me ? vLogin() : [vStart, vPredict, vObserve, vCalc, vJudge, vDone][S.step]();
+  p.innerHTML = !me ? vLogin() : free ? vFree() : [vStart, vPredict, vObserve, vCalc, vJudge, vDone][S.step]();
   p.scrollTop = 0;
-  bind[!me ? 'login' : STEPS[S.step]] && bind[!me ? 'login' : STEPS[S.step]](p);
+  p.querySelectorAll('[data-back]').forEach(b => b.onclick = () => go(Number(b.dataset.back)));
+  const k = !me ? 'login' : free ? 'free' : STEPS[S.step];
+  bind[k] && bind[k](p);
 }
 
 const legend = () => '<div class="legend">' + Object.values(KIND).map(k => `<span><i style="background:${k.color}"></i>${k.label}</span>`).join('') + '</div>';
@@ -106,7 +112,7 @@ function vStart() {
 }
 
 function vPredict() {
-  return `<h2>① 예측</h2><p class="q">속이 쓰릴 때 이 제산제를 몇 알 먹는 게 좋을까요?</p>
+  return `${backBtn(0)}<h2>① 예측</h2><p class="q">속이 쓰릴 때 이 제산제를 몇 알 먹는 게 좋을까요?</p>
   <p class="muted">아직 계산하지 말고 느낌대로 골라요.</p>
   ${opts('pred', ['1알', '2알', '3알'], S.pred)}
   <p>그렇게 생각한 이유 한 줄</p><textarea id="pwhy">${esc(S.predWhy)}</textarea>
@@ -121,7 +127,7 @@ function vObserve() {
   const t = sim ? sim.tablets : 0;
   const doneN = Object.keys(S.obs).length;
   const need = t > doneN && !(sim && sim.busy);
-  let h = `<h2>② 입자로 보기 · 제산제 ${t}/3알</h2>${legend()}`;
+  let h = `${sim && sim.busy ? '' : backBtn(1)}<h2>② 입자로 보기 · 제산제 ${t}/3알</h2>${legend()}`;
   if (sim && sim.busy) h += '<p class="muted">반응 중… OH⁻가 어디로 가는지 보세요.</p><button class="sub wide" id="fast">빨리 보기</button>';
   else if (need) {
     h += `<div class="box"><b>${t}알 넣은 뒤</b> 줄 세운 입자를 세어 적어요.
@@ -146,7 +152,7 @@ function vObserve() {
 function vCalc() {
   const P = PRODUCTS[productKey(me.sid)], c = S.calc;
   const row = (id, label, unit) => `<span>${label}</span><input type="number" step="any" inputmode="decimal" id="${id}" value="${esc(c[id])}"><span class="u">${unit}</span>`;
-  return `<h2>③ 계산</h2>
+  return `${backBtn(2)}<h2>③ 계산</h2>
   <p>내 학번으로 받은 제산제예요. 친구와 제품이 다를 수 있어요.</p>
   <div class="prod"><div class="pill"><b>${P.name}</b> ${P.f}<br>1알에 ${P.mg} mg · 화학식량 ${P.M}</div></div>
   ${P.n === 1 ? '<p class="muted">탄산수소 이온은 H⁺와 이렇게 반응해요: HCO₃⁻ + H⁺ → H₂O + CO₂</p>' : ''}
@@ -163,7 +169,7 @@ function vCalc() {
 function vJudge() {
   const P = isChem() ? PRODUCTS[productKey(me.sid)] : PRODUCTS.Mg;
   const basis = ['계산 결과', 'AR에서 본 남은 이온', '위는 소화를 위해 산성이어야 함', '제품 설명서의 복용량', '기타'];
-  return `<h2>④ 판단</h2><p class="q">${P.name} 제산제, 몇 알이 적절할까요?</p>
+  return `${backBtn(isChem() ? 3 : 2)}<h2>④ 판단</h2><p class="q">${P.name} 제산제, 몇 알이 적절할까요?</p>
   ${isChem() ? `<p class="muted">내 계산: H⁺를 모두 없애려면 ${esc(S.calc.d)}알</p>` : ''}
   ${opts('jn', ['1알', '2알', '3알', '4알'], S.judge.n)}
   <p>근거 (여러 개 골라도 돼요)</p>
@@ -178,8 +184,20 @@ function vDone() {
   return `<h2>끝났어요 ✓</h2><p>기록을 선생님께 보냈어요. 이어서 선생님 설명을 들어요.</p>
   <div class="box">예측: ${esc(S.pred)} → 판단: ${esc(S.judge.n)}</div>
   <p class="muted">수업 후에는 앱 홈에서 [수업 후 연습]을 풀어요.</p>
-  <button class="sub wide" id="again">입자 다시 보기</button>`;
+  <button class="wide" id="again">AR 다시 체험</button>
+  <p class="muted">기록은 그대로 두고 알약을 몇 번이든 다시 먹여 볼 수 있어요.</p>`;
 }
+
+function vFree() {
+  const t = sim ? sim.tablets : 0;
+  let h = `<h2>AR 다시 체험 · 제산제 ${t}알</h2>${legend()}`;
+  if (sim && sim.busy) h += '<p class="muted">반응 중… OH⁻가 어디로 가는지 보세요.</p><button class="sub wide" id="fast">빨리 보기</button>';
+  else h += `<p>${t < 5 ? '알약 카드를 입 가까이 대거나 💊를 끌어 넣어요. ' : ''}이번에는 기록하지 않아요.</p>`;
+  if (sim) h += `<button class="sub wide" id="spect">구경꾼 이온(Cl⁻·Mg²⁺) ${sim.showSpect ? '숨기기' : '보기'}</button>`;
+  if (sim && !sim.busy && t > 0) h += `<div class="row"><button class="sub" id="mix">${sim.lined ? '섞인 모습 보기' : '줄 세워 보기'}</button><button class="sub" id="zero">알약 0개로</button></div>`;
+  return h + '<button class="wide" id="freeEnd">다 봤어요</button>';
+}
+function startFree() { free = true; draft = { H: '', OH: '', liq: '' }; if (sim) sim.reset(); render(); }
 
 /* ---------- 이벤트 ---------- */
 const bind = {
@@ -196,7 +214,7 @@ const bind = {
   },
   시작(p) {
     p.querySelectorAll('[data-view]').forEach(b => b.onclick = () => {
-      S.view = b.dataset.view; send('시작', { 보기방식: S.view }); go(S.pred ? 2 : 1);
+      S.view = b.dataset.view; send('시작', { 보기방식: S.view }); go(S.sent['예측'] ? 2 : 1);
     });
   },
   예측(p) {
@@ -277,7 +295,14 @@ const bind = {
       go(5);
     };
   },
-  완료() { $('#again').onclick = () => { S.step = 2; render(); }; },
+  완료() { $('#again').onclick = startFree; },
+  free(p) {
+    const sp = $('#spect'); if (sp) sp.onclick = () => { sim.setSpect(!sim.showSpect); render(); };
+    const fast = $('#fast'); if (fast) fast.onclick = () => { sim.speed = 4; fast.disabled = true; };
+    const mix = $('#mix'); if (mix) mix.onclick = () => { sim.setLined(!sim.lined); render(); };
+    const z = $('#zero'); if (z) z.onclick = () => { sim.reset(); render(); };
+    $('#freeEnd').onclick = () => { free = false; if (sim) sim.reset(); render(); };
+  },
 };
 
 /* ---------- AR / 3D 보기 ---------- */
@@ -286,7 +311,7 @@ let viewCam = null, viewEl = null;
 const clock = new THREE.Clock();
 
 // 지금 알약을 먹일 수 있나: 관찰 단계, 반응 중 아님, 3알 전, 앞 알의 기록을 마침
-const canFeed = () => S && S.step === 2 && sim && !sim.busy && sim.tablets < 3 && Object.keys(S.obs).length >= sim.tablets;
+const canFeed = () => S && sim && !sim.busy && (free ? sim.tablets < 5 : S.step === 2 && sim.tablets < 3 && Object.keys(S.obs).length >= sim.tablets);
 function doFeed() {
   if (!canFeed()) return false;
   draft = { H: '', OH: '', liq: '' };
@@ -410,10 +435,16 @@ function start3D() {
 /* ---------- 시작 ---------- */
 function load() {
   // ?reset=1 이면 이 학생의 이 차시 기록을 지우고 처음부터 (테스트·다시 하기용)
-  if (q.get('reset')) { store.set(skey(), {}); history.replaceState(null, '', location.pathname + location.search.replace(/[?&]reset=1/, '').replace(/^&/, '?')); }
+  if (q.get('reset')) { store.set(skey(), {}); q.delete('reset'); history.replaceState(null, '', location.pathname + location.search.replace(/[?&]reset=1/, '').replace(/^&/, '?')); }
   S = Object.assign(fresh(), store.get(skey(), {}));
 }
 bindButton($('#snd'));
+bindMenu($('#menu-btn'), {
+  can: k => !!me && (k !== 'replay' || S.step > 0),
+  replay: startFree,
+  restart() { free = false; store.set(skey(), {}); load(); draft = { H: '', OH: '', liq: '' }; if (sim) sim.reset(); render(); toast('처음부터 다시 해요'); },
+  logout() { free = false; stopView(); sim = null; me = null; S = null; store.set('lensar:me', null); dropStudentParams(); render(); },
+});
 if (me) load();
 render();
 flush();

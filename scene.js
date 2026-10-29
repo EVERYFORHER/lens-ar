@@ -2,11 +2,12 @@
 // 통합과학 3·4차시, 물질과 에너지 2·3차시에서 엔진 앱이 새 창으로 엶. 기록은 4차시 제산제와 같은 방식(doPost activity).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sfx, bgm, bindButton } from './sound.js?v=20261028d';
-import { HeatScene, RX } from './scenes/heat.js?v=20261028d';
-import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261028d';
-import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261028d';
-import { CARD_H } from './scenes/kit.js?v=20261028d';
+import { sfx, bgm, bindButton } from './sound.js?v=20261029a';
+import { HeatScene, RX } from './scenes/heat.js?v=20261029a';
+import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261029a';
+import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261029a';
+import { CARD_H } from './scenes/kit.js?v=20261029a';
+import { bindMenu, dropStudentParams } from './menu.js?v=20261029a';
 
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
 const SUBJ = { isci: '통합과학', mne: '물질과 에너지', chem: '화학' };
@@ -41,7 +42,7 @@ let S;
 const skey = () => `lensar:scene:${SCENE}:${me.sid}:${me.lesson}`;
 function keep() { store.set(skey(), S); }
 function load() {
-  if (q.get('reset')) { store.set(skey(), {}); history.replaceState(null, '', location.pathname + location.search.replace(/[?&]reset=1/, '').replace(/^&/, '?')); }
+  if (q.get('reset')) { store.set(skey(), {}); q.delete('reset'); history.replaceState(null, '', location.pathname + location.search.replace(/[?&]reset=1/, '').replace(/^&/, '?')); }
   S = Object.assign({ step: 0, view: '', ans: {}, first: {}, tries: {}, runs: [], sent: false }, store.get(skey(), {}));
 }
 
@@ -128,8 +129,9 @@ const SCENES = {
         }
         render();
       });
-      const a = $('#again'); if (a) a.onclick = () => { S.ans = {}; S.cur = null; keep(); scene.reset(); render(); };
+      const a = $('#again'); if (a) a.onclick = () => { this.replay(); render(); };
     },
+    replay() { S.ans = {}; S.cur = null; keep(); if (scene) scene.reset(); },
   },
 
   cao: {
@@ -174,6 +176,7 @@ const SCENES = {
       };
       if (!this.synced && scene) { this.synced = true; sync(); }   // 앱에서 받은 설계값을 처음 한 번 장면에
     },
+    replay() { const P = this.plan(); if (scene) scene.setup(P.g || 40, P.ml || 200, !!P.warm); },
   },
 
   entropy: {
@@ -212,8 +215,9 @@ const SCENES = {
         }
         render();
       });
-      const a = $('#again'); if (a) a.onclick = () => { S.ans = {}; S.cur = null; keep(); scene.reset(); render(); };
+      const a = $('#again'); if (a) a.onclick = () => { this.replay(); render(); };
     },
+    replay() { S.ans = {}; S.cur = null; keep(); if (scene) scene.reset(); },
   },
 };
 const D = SCENES[SCENE];
@@ -320,6 +324,12 @@ function start3D() {
 /* ---------- 시작 ---------- */
 document.title = 'LENS ' + D.title;
 bindButton($('#snd'));
+bindMenu($('#menu-btn'), {
+  can: k => !!me && (k !== 'replay' || S.step > 0),
+  replay() { msg = ''; busy = false; D.replay(); render(); },
+  restart() { store.set(skey(), {}); load(); msg = ''; busy = false; D.synced = false; D.replay(); render(); toast('처음부터 다시 해요'); },
+  logout() { stopView(); scene = null; me = null; S = null; store.set('lensar:me2', null); dropStudentParams(); render(); },
+});
 if (me) load();
 render();
 flush();
