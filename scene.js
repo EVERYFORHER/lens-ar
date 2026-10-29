@@ -2,12 +2,12 @@
 // 통합과학 3·4차시, 물질과 에너지 2·3차시에서 엔진 앱이 새 창으로 엶. 기록은 4차시 제산제와 같은 방식(doPost activity).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sfx, bgm, bindButton } from './sound.js?v=20261029b';
-import { HeatScene, RX } from './scenes/heat.js?v=20261029b';
-import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261029b';
-import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261029b';
-import { CARD_H } from './scenes/kit.js?v=20261029b';
-import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261029b';
+import { sfx, bgm, bindButton } from './sound.js?v=20261029c';
+import { HeatScene, RX } from './scenes/heat.js?v=20261029c';
+import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261029c';
+import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261029c';
+import { CARD_H } from './scenes/kit.js?v=20261029c';
+import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261029c';
 
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
 const SUBJ = { isci: '통합과학', mne: '물질과 에너지', chem: '화학' };

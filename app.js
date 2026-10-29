@@ -1,9 +1,9 @@
 // LENS 4차시 위산과 제산제 AR 모듈
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Sim, KIND } from './sim.js?v=20261029b';
-import { sfx, bgm, duck, bindButton } from './sound.js?v=20261029b';
-import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261029b';
+import { Sim, KIND } from './sim.js?v=20261029c';
+import { sfx, bgm, duck, bindButton } from './sound.js?v=20261029c';
+import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261029c';
 
 // 공통 엔진 웹앱 (활동기록 탭으로 보냄). 키는 엔진 차시 탭 외부링크의 ?k= 로 받음.
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
@@ -142,6 +142,7 @@ function vObserve() {
   } else {
     h += `<p class="ok">세 번 다 기록했어요.</p><div class="row"><button class="sub" id="replay">처음부터 다시 보기</button><button id="onext">다음</button></div>`;
   }
+  h += replayBtn();
   if (sim) h += `<button class="sub wide" id="spect">구경꾼 이온(Cl⁻·Mg²⁺) ${sim.showSpect ? '숨기기' : '보기'}</button>`;
   if (sim && !sim.busy && t > 0) h += `<button class="sub wide" id="mix">${sim.lined ? '섞인 모습 보기' : '줄 세워 보기'}</button>`;
   if (doneN) h += `<table class="rec"><tr><th>알</th><th>남은 H⁺</th><th>남은 OH⁻</th><th>액성</th></tr>${
@@ -193,10 +194,20 @@ function vFree() {
   let h = `<h2>AR 다시 체험 · 제산제 ${t}알</h2>${legend()}`;
   if (sim && sim.busy) h += '<p class="muted">반응 중… OH⁻가 어디로 가는지 보세요.</p><button class="sub wide" id="fast">빨리 보기</button>';
   else h += `<p>${t < 5 ? '알약 카드를 입 가까이 대거나 💊를 끌어 넣어요. ' : ''}이번에는 기록하지 않아요.</p>`;
+  h += replayBtn();
   if (sim) h += `<button class="sub wide" id="spect">구경꾼 이온(Cl⁻·Mg²⁺) ${sim.showSpect ? '숨기기' : '보기'}</button>`;
   if (sim && !sim.busy && t > 0) h += `<div class="row"><button class="sub" id="mix">${sim.lined ? '섞인 모습 보기' : '줄 세워 보기'}</button><button class="sub" id="zero">알약 0개로</button></div>`;
   return h + '<button class="wide" id="freeEnd">다 봤어요</button>';
 }
+// 방금 넣은 알약 반응만 다시 보기 (기록·입력 칸은 그대로)
+function replayLast() {
+  if (!sim || sim.busy || !sim.tablets) return;
+  sim.rewind(sim.tablets - 1);
+  sim.feed(() => render());
+  render();
+}
+document.addEventListener('click', e => { if (e.target.closest('#again1')) replayLast(); });
+const replayBtn = () => sim && !sim.busy && sim.tablets ? '<button class="sub wide" id="again1">🔁 방금 넣은 알약 다시 보기</button>' : '';
 function startFree() { free = true; draft = { H: '', OH: '', liq: '' }; if (sim) sim.reset(); render(); }
 
 /* ---------- 이벤트 ---------- */

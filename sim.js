@@ -152,6 +152,17 @@ export class Sim {
     this.setLined(false);
   }
 
+  // k알 먹인 뒤 모습으로 바로 맞춤 (방금 반응 다시 보기용). 다음 feed에서 느린 화면도 다시 나옴
+  rewind(k) {
+    this.reset();
+    const pT = PER_TABLET, h0 = START.H, oh = pT.OH * k, used = Math.min(h0, oh);
+    const rm = this.parts.filter(p => p.k === 'H').slice(0, used); rm.forEach(p => this.remove(p));
+    for (let i = 0; i < pT.Mg * k; i++) this.add('Mg', randInStomach());
+    for (let i = 0; i < oh - used; i++) this.add('OH', randInStomach());
+    for (let i = 0; i < used; i++) this.add('W', randInStomach());
+    this.tablets = k;
+  }
+
   add(k, pos) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture(k), transparent: true }));
     const r = k === 'W' ? R * 1.25 : R;
