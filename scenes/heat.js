@@ -1,7 +1,7 @@
 // ① 열 흐름: 비커(계)와 주위 공기 사이로 열이 오가는 모습
 // 통합과학 3차시는 "주위 온도 오름/내림", 물질과 에너지 3차시는 "ΔS주위 부호"를 고름
 import * as THREE from 'three';
-import { plate, label, sprite, dotTex, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261029c';
+import { label, sprite, dotTex, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261030a';
 
 export const RX = [
   { k: '중화', name: '중화 반응', eq: 'HCl + NaOH → NaCl + H₂O', exo: true, liquid: 0xbfe3ff },
@@ -17,7 +17,6 @@ const COLD = new THREE.Color(0x4f8fe8), MID = new THREE.Color(0x98a4b2), HOT = n
 export class HeatScene {
   constructor() {
     this.group = new THREE.Group();
-    this.group.add(plate());
     this.T = 25; this.Tgoal = 25; this.flow = 0; this.cur = null; this.t = 0; this.fx = [];
 
     // 비커와 용액

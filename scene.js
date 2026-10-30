@@ -2,12 +2,12 @@
 // 통합과학 3·4차시, 물질과 에너지 2·3차시에서 엔진 앱이 새 창으로 엶. 기록은 4차시 제산제와 같은 방식(doPost activity).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sfx, bgm, bindButton } from './sound.js?v=20261029c';
-import { HeatScene, RX } from './scenes/heat.js?v=20261029c';
-import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261029c';
-import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261029c';
-import { CARD_H } from './scenes/kit.js?v=20261029c';
-import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261029c';
+import { sfx, bgm, bindButton } from './sound.js?v=20261030a';
+import { HeatScene, RX } from './scenes/heat.js?v=20261030a';
+import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261030a';
+import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261030a';
+import { CARD_H } from './scenes/kit.js?v=20261030a';
+import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261030a';
 
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
 const SUBJ = { isci: '통합과학', mne: '물질과 에너지', chem: '화학' };
@@ -221,6 +221,8 @@ const SCENES = {
   },
 };
 const D = SCENES[SCENE];
+// 장면마다 맞는 인식 카드 (F 열 흐름, G 조리 용기, H 무질서도)
+const CARD = { heat: { k: 'F', name: '열 흐름 카드(F)' }, cao: { k: 'G', name: '조리 용기 카드(G)' }, entropy: { k: 'H', name: '무질서도 카드(H)' } }[SCENE];
 
 /* ---------- 화면 ---------- */
 function render() {
@@ -255,7 +257,7 @@ function bindLogin(p) {
 }
 function vStart() {
   return `<h2>${D.title}</h2>${D.intro()}
-  <p class="muted">준비물: 몸 카드(E)를 책상에 두세요. 카드 위에 실험대가 나타나요.</p>
+  <p class="muted">준비물: ${CARD.name}를 책상에 두세요. 카드 그림 위에 장면이 나타나요.</p>
   <div class="row"><button data-view="AR">카드로 보기 (AR)</button><button class="sub" data-view="3D">화면에서 보기</button></div>`;
 }
 function bindStart(p) {
@@ -282,7 +284,7 @@ async function startAR() {
   scanTimer = setTimeout(() => { if (!foundOnce) $('#to3d').classList.remove('hidden'); }, 10000);
   try {
     const { MindARThree } = await import('./lib/mindar/mindar-image-three.prod.js');
-    mindar = new MindARThree({ container: $('#ar'), imageTargetSrc: 'assets/cards/cardED.mind', maxTrack: 1, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
+    mindar = new MindARThree({ container: $('#ar'), imageTargetSrc: `assets/cards/card${CARD.k}.mind`, maxTrack: 1, uiLoading: 'no', uiScanning: 'no', uiError: 'no' });
     const { renderer, scene: s3, camera } = mindar;
     const C = mindar.addAnchor(0);
     scene.group.position.set(0, 0, 0); C.group.add(scene.group);
@@ -308,6 +310,8 @@ function start3D() {
   const cam = new THREE.PerspectiveCamera(50, 1, 0.01, 50);
   const ctl = new OrbitControls(cam, r3d.domElement);
   ctl.enableDamping = true; ctl.minDistance = 0.6; ctl.maxDistance = 4;
+  const card = new THREE.Mesh(new THREE.PlaneGeometry(1, CARD_H), new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load(`assets/cards/card${CARD.k}.jpg`, t => { t.colorSpace = THREE.SRGBColorSpace; }) }));
+  s3.add(card);   // 화면에서 보기: 책상 위 카드 대신
   s3.add(scene.group);
   ctl.target.set(0, 0, 0.1);
   const size = () => {
@@ -324,6 +328,8 @@ function start3D() {
 
 /* ---------- 시작 ---------- */
 document.title = 'LENS ' + D.title;
+$('#scan img').src = `assets/cards/card${CARD.k}.jpg`;
+$('#scan p').textContent = `책상 위 ${CARD.name}를 30~50 cm 위에서 비춰 주세요`;
 bindButton($('#snd'));
 bindHome($('#home'));
 bindMenu($('#menu-btn'), {

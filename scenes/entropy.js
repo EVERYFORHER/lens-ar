@@ -1,6 +1,6 @@
 // ③ 무질서도: 물 분자 얼음 → 물 → 수증기(→ 다시 물), 두 플라스크 꼭지 열기(기체 혼합)
 import * as THREE from 'three';
-import { plate, label, sprite, dotTex, waterTex, lerp, clamp } from './kit.js?v=20261029c';
+import { label, sprite, dotTex, waterTex, lerp, clamp } from './kit.js?v=20261030a';
 
 export const STEPS = [
   { k: '융해', btn: '얼음 녹이기 (융해)', from: 'ice', to: 'liquid', a: '커짐' },
@@ -17,7 +17,6 @@ const N = 24, NG = 9, Rm = 0.03;
 export class EntropyScene {
   constructor() {
     this.group = new THREE.Group();
-    this.group.add(plate());
     const g = this.group;
     this.t = 0; this.phase = 'ice'; this.blend = 1; this.open = false;
 
