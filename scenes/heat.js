@@ -1,7 +1,7 @@
 // ① 열 흐름: 비커(계)와 주위 공기 사이로 열이 오가는 모습
 // 통합과학 3차시는 "주위 온도 오름/내림", 물질과 에너지 3차시는 "ΔS주위 부호"를 고름
 import * as THREE from 'three';
-import { label, sprite, dotTex, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261030a';
+import { label, sprite, dotTex, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261102b';
 
 export const RX = [
   { k: '중화', name: '중화 반응', eq: 'HCl + NaOH → NaCl + H₂O', exo: true, liquid: 0xbfe3ff },
@@ -73,6 +73,22 @@ export class HeatScene {
     this.eq.set(rx.eq); this.eq.visible = true;
     this.heatTag.visible = true;
     this.arrows.forEach(o => { o.a.visible = true; });
+  }
+  // 반응 고른 뒤 조작 전: 식만 보여 주고 기다림
+  prepare(rx) {
+    this.stop(); this.cur = null; this.Tgoal = 25;
+    this.liqMat.color.set(rx.liquid); this.setLevel(rx.k === '응결' ? 0.08 : 0.15);
+    this.eq.set(rx.eq); this.eq.visible = true;
+  }
+  target() { return new THREE.Vector3(B.x, B.y, B.h); }
+  // 조작할 때 보이는 작은 연출
+  effect(kind) {
+    const top = B.h + 0.05, r = () => (Math.random() - .5) * B.r;
+    if (kind === 'pour') for (let i = 0; i < 10; i++) this.puff(new THREE.Vector3(B.x + r() * 0.3, B.y + r() * 0.3, top + 0.15 + i * 0.03), new THREE.Vector3(0, 0, -0.5), 0x7cc4ff, 0.035, 0.6);
+    if (kind === 'powder') for (let i = 0; i < 12; i++) this.puff(new THREE.Vector3(B.x + r(), B.y + r(), top + 0.1 + Math.random() * 0.1), new THREE.Vector3(0, 0, -0.25), 0xffffff, 0.03, 0.9);
+    if (kind === 'stir') for (let i = 0; i < 4; i++) { const a = Math.random() * 6.3; this.puff(new THREE.Vector3(B.x + Math.cos(a) * B.r * 0.6, B.y + Math.sin(a) * B.r * 0.6, this.level * 0.7), new THREE.Vector3(-Math.sin(a) * 0.15, Math.cos(a) * 0.15, 0), 0xe0f0ff, 0.04, 0.6); }
+    if (kind === 'cloud') for (let i = 0; i < 10; i++) this.puff(new THREE.Vector3(B.x + 0.35 + Math.random() * 0.1, B.y + r(), top + 0.1 + Math.random() * 0.08), new THREE.Vector3(-0.45, 0, -0.12), 0xffffff, 0.09, 0.9);
+    if (kind === 'fan') for (let i = 0; i < 4; i++) this.puff(new THREE.Vector3(B.x + r(), B.y + r(), this.level), new THREE.Vector3(0.25, 0, 0.2), 0xffffff, 0.06, 1.2);
   }
   stop() { this.flow = 0; this.arrows.forEach(o => { o.a.visible = false; }); this.heatTag.visible = false; }
   reset() { this.stop(); this.cur = null; this.Tgoal = 25; this.eq.visible = false; }

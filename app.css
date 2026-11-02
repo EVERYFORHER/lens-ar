@@ -81,3 +81,15 @@ table.rec td, table.rec th { border-bottom: 1px solid var(--line); padding: 4px;
 .step input.num { width: 90px; font-size: 20px; font-weight: 700; text-align: center; padding: 6px; }
 .step .u { color: var(--muted); }
 #who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #sendstate { white-space: nowrap; font-size: 12px; }
+#tools { position: fixed; right: 12px; bottom: calc(44vh + 14px); z-index: 25; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.tool { width: 64px; height: 64px; border-radius: 50%; background: #fff; box-shadow: 0 3px 12px rgba(0,0,0,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; animation: bob 1.4s ease-in-out infinite; }
+.tool span { font-size: 30px; line-height: 1; }
+.tool small { font-size: 10px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.tool.drag { position: fixed; animation: none; transform: scale(1.15); z-index: 35; }
+.tool.near { box-shadow: 0 0 0 5px #ffd23f, 0 3px 12px rgba(0,0,0,.35); }
+#gauge { white-space: nowrap; position: fixed; left: 50%; top: 52px; transform: translateX(-50%); z-index: 30; background: rgba(29,39,51,.92); color: #fff; padding: 6px 12px; border-radius: 10px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+#gauge i { display: block; width: 120px; height: 8px; background: rgba(255,255,255,.25); border-radius: 4px; overflow: hidden; }
+#gauge b { display: block; height: 100%; width: 0; background: #ffd23f; }
+.feel { position: fixed; z-index: 36; transform: translate(-50%, -120%); padding: 6px 12px; border-radius: 14px; font-weight: 800; font-size: 18px; color: #fff; pointer-events: none; animation: feel 1.4s ease-out forwards; }
+.feel.hot { background: #e8590c; } .feel.cold { background: #1c7ed6; }
+@keyframes feel { 0% { opacity: 0; transform: translate(-50%, -80%) scale(.7); } 15% { opacity: 1; transform: translate(-50%, -120%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -220%) scale(1); } }

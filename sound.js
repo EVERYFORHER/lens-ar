@@ -86,6 +86,42 @@ export const sfx = {
     bell(f, t, big ? 0.9 : 0.6, big ? 1.4 : 0.6, fxBus);
     if (big) bell(f * 2, t + 0.12, 0.35, 0.9, fxBus);
   },
+  // 쪼르륵: 붓는 소리 (낮은 물소리가 떨리며)
+  pour(sec = 1.2) {
+    if (!live()) return; const t = ctx.currentTime;
+    const n = noise(t, sec, 'bandpass', 700, 400, 0, 6);
+    for (let i = 0; i < sec * 14; i++) n.g.gain.setValueAtTime(0.25 + 0.35 * Math.random(), t + i / 14);
+    n.g.gain.setValueAtTime(0.0001, t + sec); n.start();
+    for (let i = 0; i < sec * 6; i++) bell(300 + Math.random() * 400, t + Math.random() * sec, 0.12, 0.1, fxBus);
+  },
+  // 사각사각: 젓기·부채질 한 번
+  stir() {
+    if (!live()) return; const t = ctx.currentTime;
+    const n = noise(t, 0.18, 'bandpass', 2500, 1500, 0, 3);
+    n.g.gain.setValueAtTime(0.0001, t); n.g.gain.exponentialRampToValueAtTime(0.35, t + 0.04); n.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18); n.start();
+  },
+  // 딸깍: 숟가락·달걀 내려놓기
+  clink() { if (!live()) return; const t = ctx.currentTime; bell(1400, t, 0.4, 0.15, fxBus); bell(2100, t + 0.03, 0.2, 0.1, fxBus); },
+  // 화르륵: 불꽃 대는 동안 짧게 반복
+  flame() {
+    if (!live()) return; const t = ctx.currentTime;
+    const n = noise(t, 0.3, 'lowpass', 600, 300, 0);
+    n.g.gain.setValueAtTime(0.0001, t); n.g.gain.exponentialRampToValueAtTime(0.4, t + 0.05); n.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); n.start();
+  },
+  // 쩍: 얼음 깨짐·풀림
+  crack() {
+    if (!live()) return; const t = ctx.currentTime;
+    const n = noise(t, 0.25, 'highpass', 3000, 1500, 0);
+    n.g.gain.setValueAtTime(0.9, t); n.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25); n.start();
+    [0, 0.07, 0.15].forEach(d => bell(1800 + Math.random() * 1500, t + d, 0.25, 0.12, fxBus));
+  },
+  // 끼익: 꼭지 돌리기
+  squeak() {
+    if (!live()) return; const t = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(1100, t + 0.15);
+    env(g, t, 0.01, 0.12, 0.16); o.connect(g).connect(fxBus); o.start(t); o.stop(t + 0.2);
+  },
   // 반응 끝: 중성이면 맑은 화음, 아니면 짧은 낮은 음
   end(kind) {
     if (!live()) return; const t = ctx.currentTime;

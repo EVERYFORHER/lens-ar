@@ -1,7 +1,7 @@
 // ② 조리 용기: 도시락 아래 칸에서 산화 칼슘 + 물 → 열, 위 칸 달걀이 데워짐
 // 온도 변화는 엔진 mod_i4의 가상 모형과 같은 식(숫자는 보여 주지 않음, 정확한 그래프는 앱이 맡음)
 import * as THREE from 'three';
-import { label, sprite, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261030a';
+import { label, sprite, glowTex, arrow, thermometer, lerp, clamp } from './kit.js?v=20261102b';
 
 export const GS = [20, 30, 40, 50, 60, 70, 80], MLS = [100, 150, 200, 250, 300];
 export const MINUTES = 20;   // 화면에서 보여 주는 시간 (1초 = 1분)
@@ -54,7 +54,7 @@ export class CaoScene {
 
     // 위 칸: 달걀 + 온도계
     const egg = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 20), new THREE.MeshLambertMaterial({ color: 0xfff3dc, emissive: 0x6b6253 }));
-    egg.scale.set(0.085, 0.062, 0.06); egg.position.copy(at(-0.05, 0.02, BOX.low + 0.065)); g.add(egg);
+    egg.scale.set(0.085, 0.062, 0.06); egg.position.copy(at(-0.05, 0.02, BOX.low + 0.065)); g.add(egg); this.egg = egg;
     this.th = thermometer(0.26); this.th.position.copy(at(0.06, 0.02, BOX.low + 0.02)); g.add(this.th);
     const eggLab = label('달걀 온도계', 0.24); eggLab.position.copy(at(0.16, 0.02, BOX.low + 0.32)); g.add(eggLab);
     g.add(new THREE.HemisphereLight(0xffffff, 0xbbbbcc, 2.4));
@@ -75,36 +75,44 @@ export class CaoScene {
     this.eq.position.copy(at(0, BOX.d / 2 + 0.06, BOX.top + 0.14)); this.eq.visible = false; g.add(this.eq);
     this.clock = label('0분', 0.2); this.clock.position.copy(at(0.3, -BOX.d / 2 - 0.1, BOX.top + 0.06)); g.add(this.clock);
 
-    // 물컵 (붓기 연출)
-    this.cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.1, 20, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xdff3ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
-    this.cup.rotation.x = Math.PI / 2; this.cup.visible = false; g.add(this.cup);
     this.setup(40, 200, false);
   }
 
-  // 설계값을 장면에 반영 (붓기 전 상태로)
+  // 설계값을 장면에 반영 (빈 용기: 학생이 달걀·산화 칼슘·포장·물을 차례로 넣음)
   setup(g, ml, warm) {
     this.g = g; this.ml = ml; this.warm = warm; this.state = 'idle';
     this.pels.forEach(p => this.group.remove(p.m)); this.pels = [];
-    const n = Math.round(g / 5);
-    for (let i = 0; i < n; i++) {
-      const m = new THREE.Mesh(this.pelGeo, this.pelMat.clone());
-      const x = (i % 6 - 2.5) * 0.085 + (Math.random() - .5) * 0.02, y = (Math.floor(i / 6) - 1) * 0.11 + (Math.random() - .5) * 0.02;
-      m.position.set(x, BOX.y + y, 0.026); this.group.add(m); this.pels.push({ m, base: m.position.clone() });
-    }
-    this.water.visible = false; this.wrap.visible = warm; this.wrapLab.visible = warm;
+    this.egg.visible = false; this.th.visible = false;
+    this.water.visible = false; this.wrap.visible = false; this.wrapLab.visible = false;
     this.eq.visible = false; this.th.set(0); this.clock.set('0분');
     [...this.up, ...this.out].forEach(o => { o.a.material.opacity = 0; });
     this.fx.forEach(f => this.group.remove(f.s)); this.fx = [];
     this.st = { t: 0, T: 20 }; this.m = model(g, ml, warm); this.heat = 0; this.loss = 0;
   }
 
-  pour(onEnd) {
-    if (this.state !== 'idle') return false;
-    this.state = 'pour'; this.t = 0; this.onEnd = onEnd; this.speed = 1;
-    this.cup.visible = true; this.cup.position.set(BOX.w / 2 - 0.08, BOX.y, BOX.top + 0.16);
+  target(low) { return new THREE.Vector3(0, BOX.y, low ? 0.06 : BOX.top); }
+  placeEgg() { this.egg.visible = true; this.th.visible = true; }
+  wrapOn() { this.wrap.visible = true; this.wrapLab.visible = true; }
+  // 산화 칼슘 한 숟가락(10 g) = 알갱이 2개
+  addSpoon() {
+    for (let k = 0; k < 2; k++) {
+      const i = this.pels.length, m = new THREE.Mesh(this.pelGeo, this.pelMat.clone());
+      const x = (i % 6 - 2.5) * 0.085 + (Math.random() - .5) * 0.02, y = (Math.floor(i / 6) - 1) * 0.11 + (Math.random() - .5) * 0.02;
+      m.position.set(x, BOX.y + y, 0.026); this.group.add(m); this.pels.push({ m, base: m.position.clone() });
+      this.puff(new THREE.Vector3(x, BOX.y + y, 0.12), new THREE.Vector3(0, 0, -0.15), 0xffffff, 0.04, 0.6);
+    }
+  }
+  // 물 붓기: p는 0~1 (누르고 있는 동안), 다 부으면 반응 시작
+  pourTo(p) {
     this.water.visible = true; this.wl = 0.02 + this.ml / 300 * 0.07;
-    return true;
+    const h = Math.max(0.002, this.wl * p); this.water.scale.z = h; this.water.position.z = h / 2 + 0.004;
+    if (Math.random() < 0.5) this.puff(new THREE.Vector3(BOX.w / 2 - 0.12, BOX.y + (Math.random() - .5) * 0.03, BOX.top + 0.08), new THREE.Vector3(0, 0, -0.5), 0x59b4ff, 0.03, 0.5);
+  }
+  start(onEnd) { this.pourTo(1); this.state = 'run'; this.t = 0; this.onEnd = onEnd; this.speed = 1; this.eq.visible = true; }
+  // 용기를 손으로 만지면: 숫자 없이 느낌만
+  feel() {
+    const T = this.st.T;
+    return T < 30 ? ['미지근해요', false] : T < 50 ? ['따뜻해요', true] : T < 70 ? ['뜨거워요!', true] : ['앗 뜨거!!', true];
   }
 
   puff(pos, vel, color, size, life) {
@@ -114,13 +122,7 @@ export class CaoScene {
 
   tick(dt) {
     this.t += dt;
-    if (this.state === 'pour') {   // 1.6초 동안 물을 부음
-      const a = clamp(this.t / 1.6, 0, 1);
-      this.cup.rotation.y = -a * 1.2;
-      const h = Math.max(0.002, this.wl * a); this.water.scale.z = h; this.water.position.z = h / 2 + 0.004;
-      if (Math.random() < dt * 30) this.puff(new THREE.Vector3(BOX.w / 2 - 0.12, BOX.y + (Math.random() - .5) * 0.03, BOX.top + 0.08), new THREE.Vector3(0, 0, -0.5), 0x59b4ff, 0.03, 0.5);
-      if (a >= 1) { this.state = 'run'; this.cup.visible = false; this.eq.visible = true; this.t = 0; }
-    } else if (this.state === 'run') {
+    if (this.state === 'run') {
       // 1초에 가상 1분, 0.1분씩 나눠 계산
       let left = dt * this.speed;
       while (left > 1e-6 && this.st.t < MINUTES) { const d = Math.min(0.1, left); const r = this.m.step(this.st, d); this.heat = r.heat; this.loss = r.loss; left -= d; }

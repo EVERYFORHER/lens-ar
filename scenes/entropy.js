@@ -1,6 +1,6 @@
 // ③ 무질서도: 물 분자 얼음 → 물 → 수증기(→ 다시 물), 두 플라스크 꼭지 열기(기체 혼합)
 import * as THREE from 'three';
-import { label, sprite, dotTex, waterTex, lerp, clamp } from './kit.js?v=20261030a';
+import { label, sprite, dotTex, waterTex, glowTex, lerp, clamp } from './kit.js?v=20261102b';
 
 export const STEPS = [
   { k: '융해', btn: '얼음 녹이기 (융해)', from: 'ice', to: 'liquid', a: '커짐' },
@@ -68,10 +68,20 @@ export class EntropyScene {
     this.mol.forEach(m => { m.from = m.s.position.clone(); m.v.randomDirection(); });
     this.phase = to; this.blend = 0; this.stLab.set(STATE_NAME[to]);
   }
-  openValve() { this.open = true; this.vLab.set('꼭지 열림'); }
+  openValve() { this.open = true; this.vLab.set('꼭지 열림'); this.turn = 1; }
+  boxTarget() { return new THREE.Vector3(BX.c.x, BX.c.y, 0.05); }
+  valveTarget() { return new THREE.Vector3(0, FL.y, FL.z); }
+  // 불꽃·얼음 팩을 대는 동안: p 0~1 만큼 분자가 들썩임, kind로 빛 색
+  warm(p, kind) {
+    this.agit = p;
+    if (!this.glow) { this.glow = sprite(glowTex(), 0.5); this.glow.position.set(BX.c.x, BX.c.y, 0.02); this.group.add(this.glow); }
+    this.glow.material.color.set(kind === 'ice' ? 0x66b3ff : 0xff7a1a);
+    this.glowT = 0.25;   // 손을 떼면 금방 꺼짐
+  }
+  setTurn(p) { this.turn = p; }
   reset() {
     this.change('ice'); this.blend = 1; this.mol.forEach(m => m.s.position.copy(m.lat));
-    this.open = false; this.vLab.set('꼭지 닫힘'); this.handle.rotation.y = 0;
+    this.open = false; this.vLab.set('꼭지 닫힘'); this.handle.rotation.y = 0; this.turn = 0; this.agit = 0;
     this.gas.forEach((p, i) => p.s.position.set(i < NG ? -FL.x : FL.x, FL.y, FL.z));
   }
 
@@ -85,17 +95,21 @@ export class EntropyScene {
   tick(dt) {
     this.t += dt;
     this.blend = Math.min(1, this.blend + dt / 1.5);
+    this.glowT = (this.glowT || 0) - dt;
+    if (this.glow) this.glow.material.opacity = this.glowT > 0 ? 0.55 + 0.3 * Math.sin(this.t * 20) : Math.max(0, this.glow.material.opacity - dt * 2);
+    if (this.glowT <= 0) this.agit = Math.max(0, (this.agit || 0) - dt);
+    const ag = this.agit || 0;
     this.pool.material.opacity = lerp(this.pool.material.opacity, this.phase === 'liquid' ? 0.3 : 0, clamp(dt * 2, 0, 1));
     const lo = new THREE.Vector3(BX.c.x - BX.w / 2 + Rm, BX.c.y - BX.d / 2 + Rm, Rm);
     const hiGas = BX.h - Rm;
     for (const m of this.mol) {
       const q = m.s.position;
       if (this.phase === 'ice') {   // 제자리에서 살짝 떨기만
-        const target = m.lat.clone().add(new THREE.Vector3(Math.sin(this.t * 17 + m.lat.x * 40), Math.cos(this.t * 15 + m.lat.y * 40), 0).multiplyScalar(0.004));
+        const target = m.lat.clone().add(new THREE.Vector3(Math.sin(this.t * 17 + m.lat.x * 40), Math.cos(this.t * 15 + m.lat.y * 40), 0).multiplyScalar(0.004 * (1 + 5 * ag)));
         q.lerpVectors(m.from, target, this.blend < 1 ? this.blend : 1);
         continue;
       }
-      const gas = this.phase === 'gas', sp = gas ? 0.32 : 0.06, top = gas ? hiGas : 0.12;
+      const gas = this.phase === 'gas', sp = (gas ? 0.32 : 0.06) * (1 + 3 * ag), top = gas ? hiGas : 0.12;
       m.v.x += (Math.random() - .5) * dt * 4; m.v.y += (Math.random() - .5) * dt * 4; m.v.z += (Math.random() - .5) * dt * 4; m.v.normalize();
       if (!gas) m.v.z -= 0.6 * dt;   // 액체는 바닥에 모임
       q.addScaledVector(m.v, sp * dt);
@@ -111,7 +125,7 @@ export class EntropyScene {
       if (d > 0 && d < min) { const push = B.clone().sub(A).multiplyScalar((min - d) / d * 0.5); A.sub(push); B.add(push); }
     }
     // 기체 혼합
-    this.handle.rotation.y = lerp(this.handle.rotation.y, this.open ? Math.PI / 2 : 0, clamp(dt * 4, 0, 1));
+    this.handle.rotation.y = lerp(this.handle.rotation.y, (this.open ? 1 : this.turn || 0) * Math.PI / 2, clamp(dt * 8, 0, 1));
     for (const p of this.gas) {
       const q = p.s.position, prev = q.clone();
       p.v.x += (Math.random() - .5) * dt * 6; p.v.y += (Math.random() - .5) * dt * 6; p.v.z += (Math.random() - .5) * dt * 6; p.v.normalize();

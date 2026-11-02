@@ -2,12 +2,13 @@
 // 통합과학 3·4차시, 물질과 에너지 2·3차시에서 엔진 앱이 새 창으로 엶. 기록은 4차시 제산제와 같은 방식(doPost activity).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { sfx, bgm, bindButton } from './sound.js?v=20261030a';
-import { HeatScene, RX } from './scenes/heat.js?v=20261030a';
-import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261030a';
-import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261030a';
-import { CARD_H } from './scenes/kit.js?v=20261030a';
-import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261030a';
+import { sfx, bgm, bindButton } from './sound.js?v=20261102b';
+import { HeatScene, RX } from './scenes/heat.js?v=20261102b';
+import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261102b';
+import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261102b';
+import { CARD_H } from './scenes/kit.js?v=20261102b';
+import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261102b';
+import { ToolTray, feelPop } from './tools.js?v=20261102b';
 
 const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
 const SUBJ = { isci: '통합과학', mne: '물질과 에너지', chem: '화학' };
@@ -86,41 +87,79 @@ function judge(k, pick, right, hint) {
   return pick === right;
 }
 
+// 조작 도구: 같은 단계면 다시 만들지 않음 (진행도 유지)
+let viewCam = null, viewEl = null;
+const tray = new ToolTray(v => {
+  if (!viewCam || !viewEl || !scene) return null;
+  const w = scene.group.localToWorld(v.clone()).project(viewCam);
+  if (w.z > 1) return null;
+  const r = viewEl.getBoundingClientRect();
+  return { x: r.left + (w.x + 1) / 2 * r.width, y: r.top + (1 - w.y) / 2 * r.height };
+});
+tray.toast = toast;
+function tools(key, make) { if (tray.key === key) return; tray.key = key; tray.set(key ? make() : []); }
+
+let heatSub = '';   // 질산 암모늄: 가루를 넣은 뒤 젓기
+const HOW = {
+  중화: '오른쪽 🧪 NaOH 병을 비커까지 끌어다 넣어요.',
+  질산암모늄: '🥄 가루를 비커에 넣고, 🥢 유리 막대로 비커 위를 빙글빙글 저어요.',
+  응결: '☁️ 수증기를 비커까지 끌어다 넣어요.',
+  기화: '🪭 부채를 비커 위에 대고 좌우로 흔들어요.',
+};
+
 const SCENES = {
   heat: {
     title: '열은 어느 쪽으로 갈까?',
-    intro: () => '<p>비커 속 물질이 <b>계</b>, 둘레의 공기가 <b>주위</b>예요. 반응을 하나씩 켜고 열 화살표와 주위 온도계를 보세요.</p>',
+    intro: () => '<p>비커 속 물질이 <b>계</b>, 둘레의 공기가 <b>주위</b>예요. 반응을 골라 직접 일으키고, 열 화살표와 주위 온도계를 보세요. 비커를 손가락으로 눌러 느껴 볼 수도 있어요.</p>',
     make: () => new HeatScene(),
     question: () => isMne() ? { q: '주위의 엔트로피 변화 ΔS주위의 부호는?', o: ['+ (커짐)', '− (작아짐)'] } : { q: '주위 온도는 어떻게 될까요?', o: ['오름', '내림'] },
     right: rx => isMne() ? (rx.exo ? '+ (커짐)' : '− (작아짐)') : (rx.exo ? '오름' : '내림'),
     hint: rx => isMne()
       ? (S.tries[rx.k] >= 2 ? `열이 ${rx.exo ? '주위로 들어가면 주위 입자가 더 활발해져 ΔS주위 > 0' : '주위에서 빠져나가면 주위 입자가 덜 활발해져 ΔS주위 < 0'}이에요.` : '주위 공기 입자의 움직임을 보세요. 더 활발해지면 무질서도는?')
-      : (S.tries[rx.k] >= 2 ? `화살표가 ${rx.exo ? '계에서 주위로 나가요. 주위가 열을 받아 따뜻해져요.' : '주위에서 계로 들어가요. 주위가 열을 빼앗겨 차가워져요.'}` : '열 화살표가 어느 쪽을 향하나요? 온도계도 보세요.'),
+      : (S.tries[rx.k] >= 2 ? `화살표가 ${rx.exo ? '계에서 주위로 나가요. 주위가 열을 받아 따뜻해져요.' : '주위에서 계로 들어가요. 주위가 열을 빼앗겨 차가워져요.'}` : '열 화살표가 어느 쪽을 향하나요? 비커를 눌러 느껴 보세요.'),
+    run(rx) {
+      tools('', null); busy = true; S.running = rx.k;
+      sfx.whoosh(3);
+      scene.run(rx, () => { busy = false; render(); });
+      tray.touch = { target: () => scene.target(), feel: (x, y) => feelPop(x, y, rx.exo ? '앗 뜨거!' : '앗 차가워!', rx.exo) };
+      render();
+    },
+    toolsFor(rx) {
+      const T = (o) => Object.assign({ target: () => scene.target(), where: '비커' }, o);
+      if (rx.k === '중화') return [T({ icon: '🧪', label: 'NaOH', kind: 'drop', onDone: () => { scene.effect('pour'); sfx.pour(); setTimeout(() => this.run(rx), 600); } })];
+      if (rx.k === '응결') return [T({ icon: '☁️', label: '수증기', kind: 'drop', onDone: () => { scene.effect('cloud'); sfx.whoosh(1); setTimeout(() => this.run(rx), 600); } })];
+      if (rx.k === '기화') return [T({ icon: '🪭', label: '부채', kind: 'rub', need: 1100, doing: '부채질하는 중', onStep: () => { scene.effect('fan'); sfx.stir(); }, onDone: () => this.run(rx) })];
+      if (heatSub !== 'stir') return [T({ icon: '🥄', label: '가루', kind: 'drop', onDone: () => { scene.effect('powder'); sfx.clink(); heatSub = 'stir'; render(); } })];
+      return [T({ icon: '🥢', label: '젓기', kind: 'rub', need: 1200, doing: '빙글빙글 젓는 중', onStep: () => { scene.effect('stir'); sfx.stir(); }, onDone: () => this.run(rx) })];
+    },
     panel() {
       const cur = RX.find(r => r.k === S.cur);
       let h = `<h2>열 흐름 · ${Object.keys(S.ans).length}/4</h2>`;
       if (cur && !(cur.k in S.ans)) {
         h += `<p><b>${cur.name}</b> <span class="muted">${esc(cur.eq)}</span></p>`;
-        if (busy) h += '<p class="muted">열이 어느 쪽으로 가는지 보세요…</p>';
-        else { const Q = this.question(); h += `<p class="q">${Q.q}</p>${opts('pick', Q.o, '')}<div class="msg no">${esc(msg)}</div>`; }
+        if (S.running !== cur.k) h += `<p class="q">${HOW[cur.k]}</p>`;
+        else if (busy) h += '<p class="muted">열이 어느 쪽으로 가는지 보세요. 비커를 손가락으로 꾹 눌러 느껴 봐요.</p>';
+        else { const Q = this.question(); h += `<p class="q">${Q.q}</p>${opts('pick', Q.o, '')}<div class="msg no">${esc(msg)}</div><p class="muted">비커를 눌러 느껴 봐도 돼요.</p>`; }
         return h;
       }
-      h += '<p class="muted">반응을 골라 켜 보세요.</p><div class="opts two">' + RX.map(r => `<button data-rx="${r.k}" class="${r.k in S.ans ? 'on' : ''}">${r.k in S.ans ? '✓ ' : ''}${r.name}</button>`).join('') + '</div>';
+      h += '<p class="muted">반응을 골라요.</p><div class="opts two">' + RX.map(r => `<button data-rx="${r.k}" class="${r.k in S.ans ? 'on' : ''}">${r.k in S.ans ? '✓ ' : ''}${r.name}</button>`).join('') + '</div>';
       if (Object.keys(S.ans).length === 4) h += back + '<button class="sub wide" id="again">처음부터 다시 보기</button>';
       return h;
     },
     bind(p) {
+      const cur = RX.find(r => r.k === S.cur);
+      if (cur && !(cur.k in S.ans) && S.running !== cur.k) tools(`heat-${cur.k}-${heatSub}`, () => this.toolsFor(cur));
+      else tools('', null);
       p.querySelectorAll('[data-rx]').forEach(b => b.onclick = () => {
         const rx = RX.find(r => r.k === b.dataset.rx);
-        S.cur = rx.k; delete S.ans[rx.k]; msg = ''; keep(); busy = true;
-        sfx.whoosh(3);
-        scene.run(rx, () => { busy = false; render(); });
+        S.cur = rx.k; S.running = null; heatSub = ''; delete S.ans[rx.k]; msg = ''; keep(); tray.touch = null;
+        scene.prepare(rx); sfx.clink();
         render();
       });
       p.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => {
         const rx = RX.find(r => r.k === S.cur);
         if (judge(rx.k, b.dataset.pick, this.right(rx), this.hint(rx))) {
-          scene.stop(); S.cur = null; keep();
+          scene.stop(); S.cur = null; S.running = null; tray.touch = null; keep();
           if (Object.keys(S.ans).length === 4 && !S.sent) {
             const o = { 질문: isMne() ? 'ΔS주위' : '주위온도' };
             RX.forEach(r => { o[r.k + '_첫답'] = S.first[r.k]; o[r.k + '_시도'] = S.tries[r.k]; });
@@ -131,82 +170,109 @@ const SCENES = {
       });
       const a = $('#again'); if (a) a.onclick = () => { this.replay(); render(); };
     },
-    replay() { S.ans = {}; S.cur = null; keep(); if (scene) scene.reset(); },
+    replay() { S.ans = {}; S.cur = null; S.running = null; heatSub = ''; keep(); tools('', null); tray.touch = null; if (scene) scene.reset(); },
   },
 
   cao: {
     title: '산화 칼슘으로 달걀 데우기',
-    intro: () => '<p>도시락 <b>아래 칸</b>에 산화 칼슘을 넣고 물을 부으면 열이 나와요. 내가 고른 양으로 열이 어떻게 퍼지는지 보세요.</p><p class="muted">정확한 온도는 앱의 가상 실험 그래프에서 확인해요.</p>',
+    intro: () => '<p>도시락에 달걀을 올리고, <b>아래 칸</b>에 산화 칼슘을 숟가락으로 넣은 뒤 물을 부어요. 열이 어떻게 퍼지는지 보고, 용기를 눌러 느껴 봐요.</p><p class="muted">정확한 온도는 앱의 가상 실험 그래프에서 확인해요.</p>',
     make: () => new CaoScene(),
+    prog: { egg: false, spoons: 0, wrap: false },
     plan() {
       S.plan = S.plan || { g: GS.includes(+q.get('cao')) ? +q.get('cao') : null, ml: MLS.includes(+q.get('water')) ? +q.get('water') : null, warm: q.get('warm') == null ? null : q.get('warm') === '1' };
       return S.plan;
     },
+    ready() { const P = this.plan(); return P.g && P.ml && P.warm != null; },
+    fresh() { const P = this.plan(); this.prog = { egg: false, spoons: 0, wrap: false }; tools('', null); tray.touch = null; if (scene && this.ready()) scene.setup(P.g, P.ml, P.warm); },
+    // 지금 넣을 것: 달걀 → 산화 칼슘(10 g씩) → 보온 포장 → 물
+    next() {
+      const P = this.plan(), g = this.prog, n = P.g / 10;
+      const T = o => Object.assign({ target: () => scene.target(), where: '도시락' }, o);
+      if (!g.egg) return ['egg', [T({ icon: '🥚', label: '달걀', kind: 'drop', onDone: () => { scene.placeEgg(); sfx.clink(); g.egg = true; render(); } })]];
+      if (g.spoons < n) return ['cao' + g.spoons, [T({ icon: '🥄', label: `산화 칼슘 ${g.spoons + 1}/${n}`, kind: 'drop', target: () => scene.target(true), where: '아래 칸', onDone: () => { scene.addSpoon(); sfx.clink(); g.spoons++; render(); } })]];
+      if (P.warm && !g.wrap) return ['wrap', [T({ icon: '🧣', label: '보온 포장', kind: 'drop', onDone: () => { scene.wrapOn(); sfx.stir(); g.wrap = true; render(); } })]];
+      return ['water', [T({ icon: '💧', label: `물 ${P.ml} mL`, kind: 'hold', need: 1 + P.ml / 150, every: 0.35, doing: '물 붓는 중', onStep: () => sfx.pour(0.35), onProgress: p => scene.pourTo(p),
+        onDone: () => {
+          sfx.fizz(); scene.start(() => { S.runs.push(`${P.g} g·${P.ml} mL·${P.warm ? '보온' : '그냥'}`); keep(); sfx.end('중성'); render(); });
+          tray.touch = { target: () => scene.target(), feel: (x, y) => { const [t, hot] = scene.feel(); feelPop(x, y, t, hot); } };
+          render();
+        } })]];
+    },
     panel() {
-      const P = this.plan(), st = scene ? scene.state : 'idle';
+      const P = this.plan(), st = scene ? scene.state : 'idle', g = this.prog;
       let h = '<h2>조리 용기</h2>';
-      if (st === 'pour' || st === 'run') {
-        return h + `<p>산화 칼슘 ${P.g} g · 물 ${P.ml} mL · ${P.warm ? '보온 포장' : '그냥 그릇'}</p><p class="muted">위로 가는 화살표는 달걀로, 옆으로 가는 화살표는 주위로 빠져나가는 열이에요.</p><button class="sub wide" id="fast">빨리 보기</button>`;
+      if (st === 'run') {
+        return h + `<p>산화 칼슘 ${P.g} g · 물 ${P.ml} mL · ${P.warm ? '보온 포장' : '그냥 그릇'}</p><p class="muted">위로 가는 화살표는 달걀로, 옆으로 가는 화살표는 주위로 빠져나가는 열이에요. 용기를 눌러 느껴 봐요.</p><button class="sub wide" id="fast">빨리 보기</button>`;
       }
-      h += '<p class="muted">산화 칼슘 (g)</p>' + opts('g', GS.map(String), P.g ? String(P.g) : '').replace('class="opts"', 'class="opts sm"')
-        + '<p class="muted">물 (mL)</p>' + opts('ml', MLS.map(String), P.ml ? String(P.ml) : '').replace('class="opts"', 'class="opts sm"')
-        + opts('warm', ['보온 포장', '그냥 그릇'], P.warm == null ? '' : P.warm ? '보온 포장' : '그냥 그릇')
-        + `<div class="msg no">${esc(msg)}</div><button class="wide" id="pour">💧 물 붓기</button>`;
+      if (st === 'end') {
+        h += `<p>끝났어요. 용기를 눌러 아직 따뜻한지 느껴 봐요.</p><button class="wide" id="redo">다시 넣어 보기</button>`;
+      } else {
+        h += '<p class="muted">산화 칼슘 (g)</p>' + opts('g', GS.map(String), P.g ? String(P.g) : '').replace('class="opts"', 'class="opts sm"')
+          + '<p class="muted">물 (mL)</p>' + opts('ml', MLS.map(String), P.ml ? String(P.ml) : '').replace('class="opts"', 'class="opts sm"')
+          + opts('warm', ['보온 포장', '그냥 그릇'], P.warm == null ? '' : P.warm ? '보온 포장' : '그냥 그릇');
+        if (this.ready()) {
+          const n = P.g / 10, mark = ok => ok ? '✓' : '○';
+          h += `<div class="box">${mark(g.egg)} 🥚 달걀 올리기 · ${mark(g.spoons >= n)} 🥄 산화 칼슘 ${g.spoons}/${n}숟가락${P.warm ? ` · ${mark(g.wrap)} 🧣 포장` : ''} · ○ 💧 물 붓기 (누르고 있기)</div><p class="muted">오른쪽 도구를 도시락까지 끌어다 넣어요.</p>`;
+        } else h += `<p class="muted">산화 칼슘, 물, 그릇을 골라요.</p>`;
+      }
       if (S.runs.length) h += `<p class="muted">본 설계 ${S.runs.length}번: ${S.runs.map(r => esc(r)).join(' / ')}</p>` + (S.sent ? back : '<button class="sub wide" id="finish">다 봤어요 (기록 보내기)</button>');
       return h;
     },
     bind(p) {
-      const P = this.plan(), sync = () => { if (P.g && P.ml && P.warm != null && scene && !['pour', 'run'].includes(scene.state)) scene.setup(P.g, P.ml, P.warm); };
-      p.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { P.g = parseInt(b.dataset.g, 10); keep(); sync(); render(); });
-      p.querySelectorAll('[data-ml]').forEach(b => b.onclick = () => { P.ml = parseInt(b.dataset.ml, 10); keep(); sync(); render(); });
-      p.querySelectorAll('[data-warm]').forEach(b => b.onclick = () => { P.warm = b.dataset.warm === '보온 포장'; keep(); sync(); render(); });
-      const pour = $('#pour');
-      if (pour) pour.onclick = () => {
-        if (!P.g || !P.ml || P.warm == null) { msg = '산화 칼슘, 물, 그릇을 모두 골라요.'; return render(); }
-        msg = ''; scene.setup(P.g, P.ml, P.warm);
-        sfx.gulp(); setTimeout(() => sfx.fizz(), 1600);
-        scene.pour(() => { S.runs.push(`${P.g} g·${P.ml} mL·${P.warm ? '보온' : '그냥'}`); keep(); sfx.end('중성'); render(); });
-        render();
-      };
+      const P = this.plan(), st = scene ? scene.state : 'idle';
+      if (!this.synced && scene) { this.synced = true; this.fresh(); }   // 앱에서 받은 설계값을 처음 한 번 장면에
+      if (st === 'idle' && this.ready()) { const [k, list] = this.next(); tools('cao-' + k, () => list); } else tools('', null);
+      const pick = f => () => { f(); keep(); this.fresh(); render(); };
+      p.querySelectorAll('[data-g]').forEach(b => b.onclick = pick(() => { P.g = parseInt(b.dataset.g, 10); }));
+      p.querySelectorAll('[data-ml]').forEach(b => b.onclick = pick(() => { P.ml = parseInt(b.dataset.ml, 10); }));
+      p.querySelectorAll('[data-warm]').forEach(b => b.onclick = pick(() => { P.warm = b.dataset.warm === '보온 포장'; }));
+      const redo = $('#redo'); if (redo) redo.onclick = () => { this.fresh(); render(); };
       const fast = $('#fast'); if (fast) fast.onclick = () => { scene.speed = 4; fast.disabled = true; };
       const fin = $('#finish');
       if (fin) fin.onclick = () => {
         const last = S.runs[S.runs.length - 1];
         send('조리용기', { 본_횟수: S.runs.length, 본_설계: S.runs.join(' / '), 마지막: last }); S.sent = true; keep(); render();
       };
-      if (!this.synced && scene) { this.synced = true; sync(); }   // 앱에서 받은 설계값을 처음 한 번 장면에
     },
-    replay() { const P = this.plan(); if (scene) scene.setup(P.g || 40, P.ml || 200, !!P.warm); },
+    replay() { this.fresh(); },
   },
 
   entropy: {
     title: '무질서도는 커질까, 작아질까?',
-    intro: () => '<p>물 분자 상자에서 상태를 바꿔 보고, 두 플라스크 사이 꼭지도 열어 보세요. 바꿀 때마다 <b>무질서도(엔트로피)</b>가 어떻게 되는지 골라요.</p>',
+    intro: () => '<p>불꽃과 얼음 팩으로 물 분자 상자의 상태를 직접 바꾸고, 두 플라스크 사이 꼭지도 돌려서 열어 보세요. 바꿀 때마다 <b>무질서도(엔트로피)</b>가 어떻게 되는지 골라요.</p>',
     make: () => new EntropyScene(),
     hint: k => S.tries[k] >= 2
       ? ({ 융해: '자리에 고정돼 있던 분자가 움직이기 시작했어요. 배치할 수 있는 경우의 수가 늘어요.', 기화: '분자가 상자 전체로 빠르게 퍼졌어요. 무질서도가 크게 늘어요.', 응결: '퍼져 있던 분자가 바닥에 모였어요. 무질서도가 줄어요.', 혼합: '두 기체가 섞이면 놓일 수 있는 경우의 수가 늘어요.' })[k]
       : '분자가 놓일 수 있는 자리와 움직임이 늘었나요, 줄었나요?',
+    HOW: { 융해: '🔥 불꽃을 상자에 대고 누르고 있어요.', 기화: '🔥 불꽃을 더 오래 대고 있어요. 끓을 때까지!', 응결: '❄️ 얼음 팩을 상자에 대고 누르고 있어요.', 혼합: '🔧 꼭지 위에서 손가락을 빙글빙글 돌려 열어요.' },
+    act(cur) {
+      S.cur = cur.k; msg = ''; keep(); busy = true; tools('', null);
+      setTimeout(() => { busy = false; render(); }, cur.to ? 3000 : 5000);
+      render();
+    },
+    toolsFor(cur) {
+      const box = () => scene.boxTarget();
+      if (cur.k === '혼합') return [{ icon: '🔧', label: '꼭지', kind: 'rub', need: 900, target: () => scene.valveTarget(), where: '꼭지', doing: '꼭지 돌리는 중',
+        onStep: () => sfx.squeak(), onProgress: p => scene.setTurn(p), onDone: () => { scene.openValve(); sfx.whoosh(2); this.act(cur); } }];
+      const ice = cur.k === '응결';
+      return [{ icon: ice ? '❄️' : '🔥', label: ice ? '얼음 팩' : '불꽃', kind: 'hold', need: cur.k === '기화' ? 3.5 : 2.5, every: 0.3, target: box, where: '상자',
+        doing: ice ? '식히는 중' : '데우는 중', onStep: () => (ice ? sfx.stir() : sfx.flame()), onProgress: p => scene.warm(ice ? -0.6 * p : p, ice ? 'ice' : 'fire'),
+        onDone: () => { scene.change(cur.to); cur.k === '기화' ? sfx.whoosh(1.5) : sfx.crack(); this.act(cur); } }];
+    },
     panel() {
       const i = ESTEPS.findIndex(s => !(s.k in S.ans)), cur = ESTEPS[i];
       let h = `<h2>무질서도 · ${Object.keys(S.ans).length}/4</h2>`;
       if (!cur) return h + back + '<button class="sub wide" id="again">처음부터 다시 보기</button>';
       if (S.cur === cur.k && !busy) return h + `<p class="q">${cur.btn.replace(/ \(.*/, '')}: 무질서도는?</p>${opts('pick', ['커짐', '작아짐'], '')}<div class="msg no">${esc(msg)}</div>`;
       if (busy) return h + '<p class="muted">분자들이 어떻게 움직이는지 보세요…</p>';
-      return h + `<p>${i < 3 ? '위 상자의 물 분자' : '아래 두 플라스크(왼쪽 A, 오른쪽 B)'}를 보고 눌러 보세요.</p><button class="wide" id="go">${cur.btn}</button>`;
+      return h + `<p><b>${cur.btn}</b></p><p class="q">${this.HOW[cur.k]}</p><p class="muted">${i < 3 ? '위 상자의 물 분자' : '아래 두 플라스크(왼쪽 A, 오른쪽 B)'}를 보세요.</p>`;
     },
     bind(p) {
-      const go = $('#go');
-      if (go) go.onclick = () => {
-        const cur = ESTEPS.find(s => !(s.k in S.ans));
-        S.cur = cur.k; msg = ''; keep(); busy = true;
-        if (cur.to) scene.change(cur.to); else scene.openValve();
-        sfx.whoosh(1.5);
-        setTimeout(() => { busy = false; render(); }, cur.to ? 3000 : 5000);
-        render();
-      };
+      const cur = ESTEPS.find(s => !(s.k in S.ans));
+      if (cur && S.cur !== cur.k && !busy) tools('ent-' + cur.k, () => this.toolsFor(cur)); else tools('', null);
       p.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => {
-        const cur = ESTEPS.find(s => s.k === S.cur);
-        if (judge(cur.k, b.dataset.pick, cur.a, this.hint(cur.k))) {
+        const c = ESTEPS.find(s => s.k === S.cur);
+        if (judge(c.k, b.dataset.pick, c.a, this.hint(c.k))) {
           S.cur = null; keep();
           if (Object.keys(S.ans).length === 4 && !S.sent) {
             const o = {}; ESTEPS.forEach(s => { o[s.k + '_첫답'] = S.first[s.k]; o[s.k + '_시도'] = S.tries[s.k]; });
@@ -217,7 +283,7 @@ const SCENES = {
       });
       const a = $('#again'); if (a) a.onclick = () => { this.replay(); render(); };
     },
-    replay() { S.ans = {}; S.cur = null; keep(); if (scene) scene.reset(); },
+    replay() { S.ans = {}; S.cur = null; keep(); tools('', null); if (scene) scene.reset(); },
   },
 };
 const D = SCENES[SCENE];
@@ -275,6 +341,7 @@ function startView() {
 function stopView() {
   if (!viewOn) return; viewOn = false;
   clearTimeout(scanTimer); $('#scan').classList.add('hidden');
+  tools('', null); tray.touch = null; viewCam = viewEl = null;
   if (mindar) { try { mindar.renderer.setAnimationLoop(null); mindar.stop(); } catch (e) {} mindar = null; $('#ar').innerHTML = ''; }
   if (r3d) { r3d.setAnimationLoop(null); r3d.dispose(); r3d = null; $('#v3d').innerHTML = ''; $('#v3d').style.display = 'none'; }
 }
@@ -290,6 +357,7 @@ async function startAR() {
     scene.group.position.set(0, 0, 0); C.group.add(scene.group);
     C.onTargetFound = () => { foundOnce = true; $('#scan').classList.add('hidden'); };
     await mindar.start();
+    viewCam = camera; viewEl = renderer.domElement;
     renderer.setAnimationLoop(() => {
       scene.tick(Math.min(clock.getDelta(), 0.05));
       if (foundOnce) C.group.visible = true;   // 카드를 놓쳐도 마지막 자리에
@@ -323,6 +391,7 @@ function start3D() {
     cam.updateProjectionMatrix();
   };
   size(); addEventListener('resize', size);
+  viewCam = cam; viewEl = r3d.domElement;
   r3d.setAnimationLoop(() => { scene.tick(Math.min(clock.getDelta(), 0.05)); ctl.update(); r3d.render(s3, cam); });
 }
 
@@ -342,3 +411,4 @@ if (me) load();
 render();
 flush();
 window.LENS_SCENE = { get scene() { return scene; }, get S() { return S; } };   // 시험용
+window.__proj = v => tray.project(v);
