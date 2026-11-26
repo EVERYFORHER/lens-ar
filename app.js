@@ -3,10 +3,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Sim, KIND } from './sim.js?v=20261102b';
 import { sfx, bgm, duck, bindButton } from './sound.js?v=20261102b';
-import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261102b';
+import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261126';
+import { ENGINE, engineOk } from './engine.js?v=20261126';
 
 // 공통 엔진 웹앱 (활동기록 탭으로 보냄). 키는 엔진 차시 탭 외부링크의 ?k= 로 받음.
-const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
+const WEBAPP = ENGINE;   // engine.js: 연 엔진의 주소(없으면 수업용 기본)
 const STOMACH_H = 10;   // 위 속 H⁺ 10 mmol = 0.1 M 염산 100 mL (수업용 가정 값)
 const PRODUCTS = {
   Mg: { name: '수산화 마그네슘', f: 'Mg(OH)₂', mg: 145, M: 58, n: 2 },
@@ -48,7 +49,7 @@ function keep() { store.set(skey(), S); }
 function queue() { return store.get('lensar:queue', []); }
 function send(step, obj) {
   const items = Object.entries(obj).map(([item, value]) => ({ item, value: Array.isArray(value) ? value.join(', ') : value }));
-  const body = { action: 'activity', key: KEY, sid: me.sid, name: me.name, subject: me.subject, cls: me.cls, lesson: me.lesson, module: 'ar', step, items };
+  const body = { action: 'activity', key: KEY, sid: me.sid, name: me.name, subject: me.subject, cls: me.cls, lesson: me.lesson, module: 'ar', step, items, to: WEBAPP };
   store.set('lensar:queue', queue().concat([body]));
   S.sent[step] = true; keep();
   flush();
@@ -61,7 +62,7 @@ async function flush() {
   let qq = queue();
   while (qq.length) {
     try {
-      await fetch(WEBAPP, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(qq[0]) });
+      await fetch(engineOk(qq[0].to) ? qq[0].to : WEBAPP, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(qq[0]) });
       qq = queue().slice(1); store.set('lensar:queue', qq);   // 보내는 동안 쌓인 것도 이어서
     } catch (e) { break; }
   }

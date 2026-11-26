@@ -7,10 +7,11 @@ import { HeatScene, RX } from './scenes/heat.js?v=20261102b';
 import { CaoScene, GS, MLS } from './scenes/cao.js?v=20261102b';
 import { EntropyScene, STEPS as ESTEPS } from './scenes/entropy.js?v=20261102b';
 import { CARD_H } from './scenes/kit.js?v=20261102b';
-import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261102b';
+import { bindMenu, bindHome, dropStudentParams } from './menu.js?v=20261126';
+import { ENGINE, engineOk } from './engine.js?v=20261126';
 import { ToolTray, feelPop } from './tools.js?v=20261102b';
 
-const WEBAPP = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
+const WEBAPP = ENGINE;   // engine.js: 연 엔진의 주소(없으면 수업용 기본)
 const SUBJ = { isci: '통합과학', mne: '물질과 에너지', chem: '화학' };
 
 const $ = s => document.querySelector(s);
@@ -51,7 +52,7 @@ function load() {
 function queue() { return store.get('lensar:queue', []); }
 function send(step, obj) {
   const items = Object.entries(obj).map(([item, value]) => ({ item, value }));
-  const body = { action: 'activity', key: KEY, sid: me.sid, name: me.name, subject: me.subject, cls: me.cls, lesson: me.lesson, module: 'ar', step, items };
+  const body = { action: 'activity', key: KEY, sid: me.sid, name: me.name, subject: me.subject, cls: me.cls, lesson: me.lesson, module: 'ar', step, items, to: WEBAPP };
   store.set('lensar:queue', queue().concat([body]));
   flush();
 }
@@ -63,7 +64,7 @@ async function flush() {
   let qq = queue();
   while (qq.length) {
     try {
-      await fetch(WEBAPP, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(qq[0]) });
+      await fetch(engineOk(qq[0].to) ? qq[0].to : WEBAPP, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(qq[0]) });
       qq = queue().slice(1); store.set('lensar:queue', qq);
     } catch (e) { break; }
   }

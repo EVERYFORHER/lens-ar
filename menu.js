@@ -29,7 +29,7 @@ export function bindMenu(btn, h) {
 }
 
 // ◀ LENS: 엔진이 새 창으로 열었으면 창을 닫고, 안 닫히면 엔진 학생 주소로 이동
-const ENGINE = 'https://script.google.com/macros/s/AKfycbyWps2b7FANPAVDKDrfjSxDqFGq0--gp5ilnxNes6llrLjHTVVsHp4rPXvYrVibs6s/exec';
+import { ENGINE } from './engine.js?v=20261126';
 export function bindHome(btn) {
   btn.onclick = () => {
     try { window.close(); } catch (e) {}
